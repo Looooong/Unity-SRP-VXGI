@@ -1,0 +1,18 @@
+#pragma kernel CSParameterize
+
+uint NumThreads[3] = { 0, 0, 0 };
+RWByteAddressBuffer Arguments;
+
+void DivideArgument(uint address, uint number)
+{
+  if (number > 1) {
+    Arguments.Store(address, max(ceil((float)Arguments.Load(address) / number), 1));
+  }
+}
+
+[numthreads(1,1,1)]
+void CSParameterize()
+{
+  [unroll]
+  for (uint i = 0; i < 3; i++) DivideArgument(4 * i, NumThreads[i]);
+}

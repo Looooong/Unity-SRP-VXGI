@@ -1,0 +1,37 @@
+Changelog
+==============================================================================
+
+Version 2.2
+------------------------------------------------------------------------------
+* Graphic huge performance improvement
+* More precise average value calculation
+* Smaller texture
+
+Version 2.1
+------------------------------------------------------------------------------
+# fixed: it's wasn't possible to build with Mini Profiler! Shame!
+
+* It doesn't force a Canvas parent anymore.
+
+Version 2.0
+------------------------------------------------------------------------------
+* Now Mini Profiler is made using new Unity UI. Faster, easier and more
+flexible - suggestion by Roger Domenech (@UChlab).
+
++ It's possible now to use any UnityEngine.UI.Image and UnityEngine.UI.Text to
+draw the graphic and text. So you can position, scale, rotate, set the text
+font, size and color, graphic tint and transparency as you wish.
+
++ Added the option to add panels using the context menu into the scene or
+using the Game Object > UI > Mini Profiler menu.
+
++ Optional text colorization.
+
++ Pixel font to help you read the profiler text on smaller sizes.
+
+* Several small optimizations to improve performance and avoid C# garbage
+collection.
+
+Version 1.0
+------------------------------------------------------------------------------
+Initial release
