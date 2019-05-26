@@ -3,6 +3,8 @@ Voxel-based Global Illumination using Unity Scriptable Render Pipeline.
 
 This project is my graduation thesis at Ho Chi Minh City University of Technology. Inspired by [sonicether/SEGI](https://github.com/sonicether/SEGI).
 
+![screenshoot](screenshot.png)
+
 # Requirements
 + Unity 2018 (Experimental API). Using Unity 2019 would require slight modification to the code.
 + Shader Model 4.5 or newer.
