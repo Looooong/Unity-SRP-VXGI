@@ -3,6 +3,12 @@ Voxel-based Global Illumination using Unity Scriptable Render Pipeline.
 
 This project is my graduation thesis at Ho Chi Minh City University of Technology. Inspired by [sonicether/SEGI](https://github.com/sonicether/SEGI).
 
+# Requirements
++ Unity 2018 (Experimental API). Using Unity 2019 would require slight modification to the code.
++ Shader Model 4.5 or newer.
++ Graphic API that supports geometry shader (this excludes Metal API).
++ Approximately 1GB of VRAM for highest voxel resolution setting.
+
 # TODO
 * [ ] **Figure out the correct indirect lighting equation**. Currently, the current indirect lighting equation is not mathematically correct, so I have to figure out the correct render parameters behind [the rendering equation](https://en.wikipedia.org/wiki/Rendering_equation).
 * [ ] **Implement a better interlocked writing strategy**. Each voxel in the scene need to be shaded based on the physical properties of the material of the surface overlapping the voxel. However, multiple surfaces can overlap the same voxel, which leads to race condition when writing to the same voxel. The current implementation consumes 2.5 times the memory needed for storing voxel data because of current interlocked writing strategy.
