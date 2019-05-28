@@ -1,0 +1,59 @@
+﻿#pragma kernel CSAverage
+#pragma kernel CSAverage PLATFORM_LINUX
+#pragma kernel CSRender
+#pragma kernel CSRender TRACE_SUN
+
+#include "Packages/com.looooong.srp.vxgi/Runtime/CGIncludes/Structs/RadianceData.cginc"
+#include "Packages/com.looooong.srp.vxgi/Runtime/CGIncludes/Structs/VoxelData.cginc"
+#include "Packages/com.looooong.srp.vxgi/Runtime/CGIncludes/Radiances/Voxel.cginc"
+
+RWTexture3D<float4> Target;
+RWByteAddressBuffer RadianceBuffer;
+ConsumeStructuredBuffer<VoxelData> VoxelBuffer;
+
+[numthreads(8,8,8)]
+void CSAverage(uint3 id : SV_DispatchThreadID)
+{
+  if (any(id >= Resolution)) return;
+
+  RadianceData d;
+  d.Load(RadianceBuffer, id);
+
+  GroupMemoryBarrierWithGroupSync();
+
+  if (d.count > 0) {
+    Target[id] = d.color / d.count;
+
+    d.color = 0.0;
+    d.count = 0;
+    d.Store(RadianceBuffer, id);
+#ifdef PLATFORM_LINUX
+  } else Target[id] = 0.0;
+#else
+  } else if (any(Target[id])) Target[id] = 0.0; // Write only when necessary
+#endif
+}
+
+[numthreads(128,1,1)]
+void CSRender(uint id : SV_DispatchThreadID)
+{
+  VoxelData data = VoxelBuffer.Consume();
+
+  if (!data.IsValid()) return;
+
+  float3 position = data.GetPosition();
+  float3 normal = data.GetNormal();
+  float4 color = data.GetColor();
+  float3 emission = data.GetEmission();
+
+  GroupMemoryBarrierWithGroupSync();
+
+  RadianceData d;
+  d.color.rgb = emission + VoxelRadiance(position, normal, color.rgb);
+  d.color.a = 1.0;
+  d.count = 1;
+
+  GroupMemoryBarrierWithGroupSync();
+
+  d.InterlockedAdd(RadianceBuffer, data.GetPosition());
+}
