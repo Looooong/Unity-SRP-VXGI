@@ -1,4 +1,7 @@
 # Unity-SRP-VXGI
+
+## This is the legacy branch, examples will be moved to a separate repo
+
 Voxel-based Global Illumination using Unity Scriptable Render Pipeline.
 
 This project is my graduation thesis at Ho Chi Minh City University of Technology. Inspired by [sonicether/SEGI](https://github.com/sonicether/SEGI).
