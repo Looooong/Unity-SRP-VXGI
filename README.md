@@ -1,7 +1,14 @@
 # Unity - Scriptable Render Pipeline - Voxel-based Global Illumination
 
-![Screenshot 1](Documentation~/Screenshots/1.jpg)
-![Screenshot 2](Documentation~/Screenshots/2.jpg)
+# Showcase
+* [Tutorial](https://youtu.be/nACG_mtSUDo)
+* [Demo](https://youtu.be/cOHHuDeXhgw)
+* [Example project (legacy branch)](https://github.com/Looooong/Unity-SRP-VXGI/tree/legacy)
+
+<p align="center">
+  <img src="Documentation~/Screenshots/1.jpg" alt="Screenshot 1" width="230" />
+  <img src="Documentation~/Screenshots/2.jpg" alt="Screenshot 2" width="300" />
+</p>
 
 # Installation
 Add the following dependency to `<project path>/Packages/manifest.json`:
@@ -9,7 +16,6 @@ Add the following dependency to `<project path>/Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    // ...
     "com.looooong.srp.vxgi": "https://github.com/Looooong/Unity-SRP-VXGI.git"
   }
 }
