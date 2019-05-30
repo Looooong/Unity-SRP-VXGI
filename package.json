@@ -1,4 +1,17 @@
 {
   "name": "com.looooong.srp.vxgi",
-  "version": "0.0.1"
+  "version": "0.0.1",
+  "displayName": "Voxel-based Global Illumination",
+  "unity": "2018.1",
+  "keywords": [
+    "graphics",
+    "global illumination",
+    "lighting",
+    "SRP",
+    "scriptable render pipeline"
+  ],
+  "author": {
+    "name": "Nguyễn Đức Long",
+    "email": "duclong120995@gmail.com"
+  }
 }
