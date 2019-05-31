@@ -18,7 +18,6 @@ Shader "Hidden/VXGI"
       CGPROGRAM
       #pragma vertex vert
       #pragma fragment frag
-      #pragma multi_compile __ REFLECT_SKYBOX
       #pragma multi_compile __ TRACE_SUN
       #pragma multi_compile __ TRACE_DIFFUSE TRACE_REFLECTANCE TRACE_TRANSMITTANCE
 

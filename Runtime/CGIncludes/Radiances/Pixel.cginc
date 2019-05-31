@@ -8,8 +8,6 @@
   #include "Packages/com.looooong.srp.vxgi/Runtime/CGIncludes/Radiances/Sampler.cginc"
   #include "Packages/com.looooong.srp.vxgi/Runtime/CGIncludes/Structs/LightingData.cginc"
 
-  samplerCUBE Skybox;
-
   float3 DirectPixelRadiance(LightingData data)
   {
     float3 radiance = 0.0;
@@ -56,11 +54,10 @@
       radiance += (1.0 - radiance.a) * SampleRadiance(coordinate, size);
     }
 
-#ifdef REFLECT_SKYBOX
     if (radiance.a < 1.0) {
-      radiance += (1 - radiance.a) * texCUBElod(Skybox, float4(data.vecR, mad(-40.0, data.glossiness * data.glossiness, 40.0)));
+      half4 skyData = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, data.vecR, 6.0 * data.perceptualRoughness);
+      radiance += (1 - radiance.a) * half4(DecodeHDR(skyData, unity_SpecCube0_HDR), 1.0);
     }
-#endif
 
     return data.specularColor * radiance.rgb * data.NdotR;
   }

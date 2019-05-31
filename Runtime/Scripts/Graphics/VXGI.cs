@@ -10,7 +10,6 @@ public class VXGI : MonoBehaviour {
   public enum Resolution { Low = 33, Medium = 65, High = 129, VeryHigh = 257 }
 
   public Vector3 center;
-  public Cubemap skybox;
   public Light sun;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
   public Resolution resolution = Resolution.Medium;

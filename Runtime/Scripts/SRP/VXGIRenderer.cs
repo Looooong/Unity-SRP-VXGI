@@ -105,6 +105,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.Clear();
 
     var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("Deferred"));
+    drawSettings.rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
@@ -128,13 +129,6 @@ public class VXGIRenderer : System.IDisposable {
       if (keyword != null) _command.EnableShaderKeyword(keyword);
 
       _coneType = vxgi.coneType;
-    }
-
-    if (vxgi.skybox == null) {
-      _command.DisableShaderKeyword("REFLECT_SKYBOX");
-    } else {
-      _command.EnableShaderKeyword("REFLECT_SKYBOX");
-      _command.SetGlobalTexture("Skybox", vxgi.skybox);
     }
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;

@@ -17,6 +17,7 @@
     // Physical properties
     float glossiness;
     float metallic;
+    float perceptualRoughness;
     float roughness;
 
     // Vectors
@@ -40,6 +41,7 @@
       diffuseColor = (1.0 - metallic) * baseColor;
       specularColor = metallic * baseColor;
 
+      perceptualRoughness = 1.0 - glossiness;
       roughness = 1.0 - glossiness * glossiness;
       roughness *= roughness;
 
