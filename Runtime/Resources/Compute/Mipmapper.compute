@@ -1,0 +1,58 @@
+﻿#pragma kernel CSFilter
+#pragma kernel CSFilter PLATFORM_LINUX
+#pragma kernel CSShift
+
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Constants.cginc"
+
+int DstRes;
+Texture3D<float4> Src;
+RWTexture3D<float4> Dst;
+static float Weights[4] = {
+  R_8,
+  R_16,
+  R_32,
+  R_64
+};
+
+[numthreads(8,8,8)]
+void CSFilter(int3 id : SV_DispatchThreadID)
+{
+  if (any(id >= DstRes)) return;
+
+  half4 color = 0.0;
+
+  [unroll]
+  for (int i = -1; i < 2; i++) {
+    [unroll]
+    for (int j = -1; j < 2; j++) {
+      [unroll]
+      for (int k = -1; k < 2; k++) {
+        color += Weights[abs(i) + abs(j) + abs(k)] * Src[2 * id + int3(i, j, k)];
+        GroupMemoryBarrierWithGroupSync();
+      }
+    }
+  }
+
+  if (any(color)) Dst[id] = color * 2.0;
+#ifdef PLATFORM_LINUX
+  else Dst[id] = 0.0;
+#else
+  else if (any(Dst[id])) Dst[id] = 0.0;
+#endif
+}
+
+int3 Displacement;
+
+[numthreads(8,8,8)]
+void CSShift(int3 id : SV_DispatchThreadID)
+{
+  if (any(id >= DstRes)) return;
+
+  id.x = Displacement.x < 0 ? DstRes - 1 - id.x : id.x;
+  id.y = Displacement.y < 0 ? DstRes - 1 - id.y : id.y;
+  id.z = Displacement.z < 0 ? DstRes - 1 - id.z : id.z;
+
+  Dst[id] = Dst[id + Displacement];
+
+  GroupMemoryBarrierWithGroupSync();
+}
