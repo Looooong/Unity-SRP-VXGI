@@ -21,8 +21,6 @@ public class VXGI : MonoBehaviour {
   [Range(1f, 100f)]
   public float tracingRate = 10f;
   public VXGIRenderer.Pass pass = VXGIRenderer.Pass.ConeTracing;
-  public VXGIRenderer.ConeType coneType = VXGIRenderer.ConeType.All;
-  public VXGIRenderer.GBufferType gBufferType = VXGIRenderer.GBufferType.Diffuse;
   public VXGIRenderer.MipmapSampler mipmapSampler = VXGIRenderer.MipmapSampler.Linear;
   [Range(0f, 9f)]
   public float level = 1f;

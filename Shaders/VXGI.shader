@@ -19,7 +19,6 @@ Shader "Hidden/VXGI"
       #pragma vertex vert
       #pragma fragment frag
       #pragma multi_compile __ TRACE_SUN
-      #pragma multi_compile __ TRACE_DIFFUSE TRACE_REFLECTANCE TRACE_TRANSMITTANCE
 
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Pixel.cginc"
@@ -142,73 +141,6 @@ Shader "Hidden/VXGI"
         }
 
         return color;
-      }
-      ENDCG
-    }
-
-    Pass
-    {
-      Name "GBuffer"
-
-      CGPROGRAM
-      #pragma vertex vert
-      #pragma fragment frag
-      #pragma multi_compile GBUFFER_DIFFUSE GBUFFER_DEPTH GBUFFER_NORMAL GBUFFER_EMISSION GBUFFER_GLOSSINESS GBUFFER_METALLIC
-
-      #include "UnityCG.cginc"
-
-      struct v2f
-      {
-        float4 vertex : SV_POSITION;
-        float2 uv : TEXCOORD;
-      };
-
-      struct FragmentOutput {
-        half4 color : SV_TARGET;
-        float depth : SV_DEPTH;
-      };
-
-      float4 _MainTex_ST;
-      sampler2D _MainTex;
-      sampler2D Depth;
-      sampler2D Normal;
-      sampler2D Emission;
-      sampler2D Other;
-
-      v2f vert (appdata_base v)
-      {
-        v2f o;
-        o.vertex = UnityObjectToClipPos(v.vertex);
-        o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
-        return o;
-      }
-
-      FragmentOutput frag (v2f i)
-      {
-        FragmentOutput o;
-        o.color = 0.0;
-        o.depth = tex2D(Depth, i.uv).r;
-
-        if (o.depth > 0.0) {
-#if defined(GBUFFER_DIFFUSE)
-          o.color = half4(tex2D(_MainTex, i.uv));
-#elif defined(GBUFFER_DEPTH)
-          float d = sqrt(o.depth);
-          o.color = half4(d, d, d, 1.0);
-#elif defined(GBUFFER_NORMAL)
-          o.color = half4(mad(0.5, tex2D(Normal, i.uv).rgb, 0.5), 1.0);
-#elif defined(GBUFFER_EMISSION)
-          o.color = half4(tex2D(Emission, i.uv).rgb, 1.0);
-#elif defined(GBUFFER_GLOSSINESS)
-          o.color = tex2D(Other, i.uv).r;
-          o.color.a = 1.0;
-#elif defined(GBUFFER_METALLIC)
-          o.color = tex2D(Other, i.uv).g;
-          o.color.a = 1.0;
-#endif
-        }
-
-        return o;
       }
       ENDCG
     }
