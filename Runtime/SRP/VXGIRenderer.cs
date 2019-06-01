@@ -3,22 +3,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 public class VXGIRenderer : System.IDisposable {
-  public enum ConeType {
-    All,
-    Diffuse,
-    Reflectance,
-    Transmittance
-  }
-
-  public enum GBufferType {
-    Diffuse,
-    Depth,
-    Normal,
-    Emission,
-    Glossiness,
-    Metallic
-  }
-
   public enum MipmapSampler {
     Linear,
     Point
@@ -27,8 +11,7 @@ public class VXGIRenderer : System.IDisposable {
   public enum Pass {
     ConeTracing = 0,
     DiffuseConeTracing = 1,
-    GBuffer = 2,
-    Mipmap = 3
+    Mipmap = 2
   }
 
   public Material material {
@@ -50,10 +33,8 @@ public class VXGIRenderer : System.IDisposable {
   CommandBuffer _command;
   CommandBuffer _commandDiffuse;
   CommandBuffer _commandReflection;
-  ConeType _coneType;
   CullResults _cullResults;
   FilterRenderersSettings _filterSettings;
-  GBufferType _gBufferType = GBufferType.Diffuse;
   Material _material;
 
   public VXGIRenderer() {
@@ -113,22 +94,6 @@ public class VXGIRenderer : System.IDisposable {
     if (vxgi.pass == Pass.ConeTracing) {
       renderContext.SetupCameraProperties(camera);
       renderContext.DrawSkybox(camera);
-    }
-
-    if (_gBufferType != vxgi.gBufferType) {
-      _command.DisableShaderKeyword(GetGBufferKeyword(_gBufferType));
-      _command.EnableShaderKeyword(GetGBufferKeyword(vxgi.gBufferType));
-      _gBufferType = vxgi.gBufferType;
-    }
-
-    if (_coneType != vxgi.coneType) {
-      var keyword = GetConeKeyword(_coneType);
-      if (keyword != null) _command.DisableShaderKeyword(keyword);
-
-      keyword = GetConeKeyword(vxgi.coneType);
-      if (keyword != null) _command.EnableShaderKeyword(keyword);
-
-      _coneType = vxgi.coneType;
     }
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;
@@ -200,26 +165,5 @@ public class VXGIRenderer : System.IDisposable {
     renderContext.ExecuteCommandBuffer(_command);
 
     _command.Clear();
-  }
-
-  string GetConeKeyword(ConeType type) {
-    switch (type) {
-      case ConeType.Diffuse: return "TRACE_DIFFUSE";
-      case ConeType.Reflectance: return "TRACE_REFLECTANCE";
-      case ConeType.Transmittance: return "TRACE_TRANSMITTANCE";
-      default: return null;
-    }
-  }
-
-  string GetGBufferKeyword(GBufferType type) {
-    switch (type) {
-      case GBufferType.Diffuse: return "GBUFFER_DIFFUSE";
-      case GBufferType.Depth: return "GBUFFER_DEPTH";
-      case GBufferType.Normal: return "GBUFFER_NORMAL";
-      case GBufferType.Emission: return "GBUFFER_EMISSION";
-      case GBufferType.Glossiness: return "GBUFFER_GLOSSINESS";
-      case GBufferType.Metallic: return "GBUFFER_METALLIC";
-      default: return "GBUFFER_DIFFUSE";
-    }
   }
 }
