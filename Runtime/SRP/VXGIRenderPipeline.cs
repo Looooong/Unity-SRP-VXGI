@@ -8,7 +8,7 @@ public class VXGIRenderPipeline : RenderPipeline {
   FilterRenderersSettings _filterSettings;
   VXGIRenderer _renderer;
 
-  public VXGIRenderPipeline() {
+  public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
     _renderer = new VXGIRenderer();
     _command = new CommandBuffer() { name = "VXGIRenderPipeline" };
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
@@ -16,6 +16,8 @@ public class VXGIRenderPipeline : RenderPipeline {
     Shader.globalRenderPipeline = "VXGI";
     Shader.SetGlobalVectorArray("LightColors", new Vector4[64]);
     Shader.SetGlobalVectorArray("LightPositions", new Vector4[64]);
+
+    GraphicsSettings.useScriptableRenderPipelineBatching = asset.useBatching;
   }
 
   public override void Dispose() {

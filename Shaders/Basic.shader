@@ -59,6 +59,8 @@
       #pragma shader_feature _METALLICGLOSSMAP
 
       #include "UnityCG.cginc"
+      #include "UnityStandardUtils.cginc"
+      #include "Packages/com.looooong.srp.vxgi/Shaders/Basic/Variables.cginc"
 
       struct v2f
       {
@@ -75,18 +77,6 @@
         float3 emission  : SV_TARGET2;
         float4 other     : SV_TARGET3;
       };
-
-      half4 _Color;
-      sampler2D _MainTex;
-      float4 _MainTex_ST;
-      sampler2D _BumpMap;
-      float3 _EmissionColor;
-      sampler2D _EmissionMap;
-      float _Metallic;
-      sampler2D _MetallicGlossMap;
-      float _Glossiness;
-      float _GlossMapScale;
-      float _SmoothnessTextureChannel;
 
       v2f vert (appdata_tan v)
       {
@@ -108,7 +98,7 @@
       {
         float4 color = _Color * tex2D(_MainTex, i.uv);
 
-        float3 localNormal = UnpackNormal(tex2D(_BumpMap, i.uv));
+        float3 localNormal = UnpackScaleNormal(tex2D(_BumpMap, i.uv), _BumpScale);
         float3 worldNormal;
         worldNormal.x = dot(i.tangentX, localNormal);
         worldNormal.y = dot(i.tangentY, localNormal);
@@ -160,18 +150,11 @@
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
+      #include "Packages/com.looooong.srp.vxgi/Shaders/Basic/Variables.cginc"
 
       #define AXIS_X 0
       #define AXIS_Y 1
       #define AXIS_Z 2
-
-      float4 _Color;
-      sampler2D _MainTex;
-      float4 _MainTex_ST;
-      float _Metallic;
-      sampler2D _MetallicGlossMap;
-      float3 _EmissionColor;
-      sampler2D _EmissionMap;
 
       // Map depth [0, 1] to Z coordinate [0, Resolution)
       static float DepthResolution = Resolution * 0.999999;
