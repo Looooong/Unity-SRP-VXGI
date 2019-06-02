@@ -53,7 +53,7 @@ public class Voxelizer : System.IDisposable {
     _command.Dispose();
   }
 
-  public void Voxelize(ScriptableRenderContext renderContext) {
+  public void Voxelize(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
     ScriptableCullingParameters cullingParams;
     if (!CullResults.GetCullingParameters(_camera, out cullingParams)) return;
     CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
@@ -81,6 +81,8 @@ public class Voxelizer : System.IDisposable {
     _command.SetGlobalMatrix("WorldToVoxel", _vxgi.worldToVoxel);
     _command.SetGlobalMatrix("VoxelToProjection", GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
+
+    _drawSettings.flags = renderer.drawRendererFlags;
 
     renderContext.ExecuteCommandBuffer(_command);
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref _drawSettings, _filterSettings);

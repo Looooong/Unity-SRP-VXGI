@@ -107,10 +107,10 @@ public class VXGI : MonoBehaviour {
       if (_previousTrace + 1f / tracingRate < realtime) {
         _previousTrace = realtime;
 
-        PrePass(renderContext);
+        PrePass(renderContext, renderer);
       }
     } else {
-      PrePass(renderContext);
+      PrePass(renderContext, renderer);
     }
 
     renderContext.SetupCameraProperties(camera);
@@ -129,7 +129,7 @@ public class VXGI : MonoBehaviour {
     renderContext.Submit();
   }
 
-  void PrePass(ScriptableRenderContext renderContext) {
+  void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
     if (followCamera) center = transform.position;
 
     var displacement = (voxelSpaceCenter - _lastVoxelSpaceCenter) / voxelSize;
@@ -138,7 +138,7 @@ public class VXGI : MonoBehaviour {
       _mipmapper.Shift(renderContext, Vector3Int.RoundToInt(displacement));
     }
 
-    _voxelizer.Voxelize(renderContext);
+    _voxelizer.Voxelize(renderContext, renderer);
     _voxelShader.Render(renderContext);
     _mipmapper.Filter(renderContext);
 

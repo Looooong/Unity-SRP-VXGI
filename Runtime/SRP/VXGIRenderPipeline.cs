@@ -3,21 +3,29 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 public class VXGIRenderPipeline : RenderPipeline {
+  public DrawRendererFlags drawRendererFlags {
+    get { return _drawRendererFlags; }
+  }
+
   CommandBuffer _command;
   CullResults _cullResults;
+  DrawRendererFlags _drawRendererFlags;
   FilterRenderersSettings _filterSettings;
   VXGIRenderer _renderer;
 
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
-    _renderer = new VXGIRenderer();
+    _renderer = new VXGIRenderer(this);
     _command = new CommandBuffer() { name = "VXGIRenderPipeline" };
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
+
+    _drawRendererFlags = DrawRendererFlags.None;
+    if (asset.dynamicBatching) _drawRendererFlags |= DrawRendererFlags.EnableDynamicBatching;
 
     Shader.globalRenderPipeline = "VXGI";
     Shader.SetGlobalVectorArray("LightColors", new Vector4[64]);
     Shader.SetGlobalVectorArray("LightPositions", new Vector4[64]);
 
-    GraphicsSettings.useScriptableRenderPipelineBatching = asset.useBatching;
+    GraphicsSettings.useScriptableRenderPipelineBatching = asset.SRPBatching;
   }
 
   public override void Dispose() {
@@ -79,6 +87,7 @@ public class VXGIRenderPipeline : RenderPipeline {
     drawSettings.SetShaderPassName(3, new ShaderPassName("Vertex"));
     drawSettings.SetShaderPassName(4, new ShaderPassName("VertexLMRGBM"));
     drawSettings.SetShaderPassName(5, new ShaderPassName("VertexLM"));
+    drawSettings.flags = _drawRendererFlags;
 
     renderContext.SetupCameraProperties(camera);
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
