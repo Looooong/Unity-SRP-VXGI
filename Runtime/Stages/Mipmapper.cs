@@ -3,6 +3,14 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 public class Mipmapper {
+  public ComputeShader compute {
+    get {
+      if (_compute == null) _compute = (ComputeShader)Resources.Load("Compute/Mipmapper");
+
+      return _compute;
+    }
+  }
+
   int _kernelFilter;
   int _kernelShift;
   int _propDisplacement;
@@ -11,7 +19,7 @@ public class Mipmapper {
   int _propSrc;
   CommandBuffer _commandFilter;
   CommandBuffer _commandShift;
-  ComputeShader _compute = (ComputeShader)Resources.Load("Compute/Mipmapper");
+  ComputeShader _compute;
   VXGI _vxgi;
 
   public Mipmapper(VXGI vxgi) {
@@ -26,7 +34,7 @@ public class Mipmapper {
       _kernelFilter = 0;
     }
 
-    _kernelShift = _compute.FindKernel("CSShift");
+    _kernelShift = compute.FindKernel("CSShift");
 
     _propDisplacement = Shader.PropertyToID("Displacement");
     _propDst = Shader.PropertyToID("Dst");
@@ -47,10 +55,10 @@ public class Mipmapper {
       int resolution = radiances[i].volumeDepth;
       int groups = Mathf.CeilToInt((float)resolution / 8f);
 
-      _commandFilter.SetComputeIntParam(_compute, _propDstRes, resolution);
-      _commandFilter.SetComputeTextureParam(_compute, _kernelFilter, _propDst, radiances[i]);
-      _commandFilter.SetComputeTextureParam(_compute, _kernelFilter, _propSrc, radiances[i - 1]);
-      _commandFilter.DispatchCompute(_compute, _kernelFilter, groups, groups, groups);
+      _commandFilter.SetComputeIntParam(compute, _propDstRes, resolution);
+      _commandFilter.SetComputeTextureParam(compute, _kernelFilter, _propDst, radiances[i]);
+      _commandFilter.SetComputeTextureParam(compute, _kernelFilter, _propSrc, radiances[i - 1]);
+      _commandFilter.DispatchCompute(compute, _kernelFilter, groups, groups, groups);
     }
 
     _commandFilter.EndSample(_commandFilter.name);
@@ -65,10 +73,10 @@ public class Mipmapper {
 
     int groups = Mathf.CeilToInt((float)_vxgi.resolution / 8f);
 
-    _commandShift.SetComputeIntParam(_compute, _propDstRes, (int)_vxgi.resolution);
-    _commandShift.SetComputeIntParams(_compute, _propDisplacement, new [] { displacement.x, displacement.y, displacement.z });
-    _commandShift.SetComputeTextureParam(_compute, _kernelShift, _propDst, _vxgi.radiances[0]);
-    _commandShift.DispatchCompute(_compute, _kernelShift, groups, groups, groups);
+    _commandShift.SetComputeIntParam(compute, _propDstRes, (int)_vxgi.resolution);
+    _commandShift.SetComputeIntParams(compute, _propDisplacement, new[] { displacement.x, displacement.y, displacement.z });
+    _commandShift.SetComputeTextureParam(compute, _kernelShift, _propDst, _vxgi.radiances[0]);
+    _commandShift.DispatchCompute(compute, _kernelShift, groups, groups, groups);
 
     _commandShift.EndSample(_commandShift.name);
 

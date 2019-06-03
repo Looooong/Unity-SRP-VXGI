@@ -14,6 +14,9 @@ public class VXGIRenderer : System.IDisposable {
     Mipmap = 2
   }
 
+  public DrawRendererFlags drawRendererFlags {
+    get { return _renderPipeline.drawRendererFlags; }
+  }
   public Material material {
     get {
       if (_material == null) {
@@ -36,12 +39,14 @@ public class VXGIRenderer : System.IDisposable {
   CullResults _cullResults;
   FilterRenderersSettings _filterSettings;
   Material _material;
+  VXGIRenderPipeline _renderPipeline;
 
-  public VXGIRenderer() {
+  public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
     _command = new CommandBuffer { name = "VXGIRenderer" };
     _commandDiffuse = new CommandBuffer { name = "VXGIRenderer.Diffuse" };
     _commandReflection = new CommandBuffer { name = "VXGIRenderer.Reflection" };
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
+    _renderPipeline = renderPipeline;
 
     _propDepth = Shader.PropertyToID("Depth");
     _propDiffuse = Shader.PropertyToID("Diffuse");
@@ -86,6 +91,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.Clear();
 
     var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("Deferred"));
+    drawSettings.flags = _renderPipeline.drawRendererFlags;
     drawSettings.rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
