@@ -73,9 +73,9 @@
 
       struct FragmentOutput {
         float4 diffuse   : SV_TARGET0;
-        float3 normal    : SV_TARGET1;
-        float3 emission  : SV_TARGET2;
-        float4 other     : SV_TARGET3;
+        float4 specular  : SV_TARGET1;
+        float3 normal    : SV_TARGET2;
+        float3 emission  : SV_TARGET3;
       };
 
       v2f vert (appdata_tan v)
@@ -99,10 +99,11 @@
         float4 color = _Color * tex2D(_MainTex, i.uv);
 
         float3 localNormal = UnpackScaleNormal(tex2D(_BumpMap, i.uv), _BumpScale);
-        float3 worldNormal;
-        worldNormal.x = dot(i.tangentX, localNormal);
-        worldNormal.y = dot(i.tangentY, localNormal);
-        worldNormal.z = dot(i.tangentZ, localNormal);
+        float3 worldNormal = float3(
+          dot(i.tangentX, localNormal),
+          dot(i.tangentY, localNormal),
+          dot(i.tangentZ, localNormal)
+        );
 
         float glossiness = _SmoothnessTextureChannel > 0.0 ? color.a * _GlossMapScale : _Glossiness;
 
@@ -119,10 +120,10 @@
         #endif
 
         FragmentOutput o;
-        o.diffuse = color;;
-        o.normal = normalize(worldNormal);
+        o.diffuse = color;
+        o.normal = mad(normalize(worldNormal), 0.5, 0.5);
         o.emission = emission;
-        o.other = float4(glossiness, metallic, 0.0, 0.0);
+        o.specular = float4(glossiness, metallic, 0.0, 0.0);
 
         return o;
       }

@@ -32,13 +32,14 @@ public class VXGIRenderer : System.IDisposable {
   int _propEmission;
   int _propIrradiance;
   int _propNormal;
-  int _propOther;
+  int _propSpecular;
   CommandBuffer _command;
   CommandBuffer _commandDiffuse;
   CommandBuffer _commandReflection;
   CullResults _cullResults;
   FilterRenderersSettings _filterSettings;
   Material _material;
+  RenderTargetBinding _gBufferBinding;
   VXGIRenderPipeline _renderPipeline;
 
   public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
@@ -53,7 +54,14 @@ public class VXGIRenderer : System.IDisposable {
     _propEmission = Shader.PropertyToID("Emission");
     _propIrradiance = Shader.PropertyToID("Irradiance");
     _propNormal = Shader.PropertyToID("Normal");
-    _propOther = Shader.PropertyToID("Other");
+    _propSpecular = Shader.PropertyToID("Specular");
+
+    _gBufferBinding = new RenderTargetBinding(
+      new RenderTargetIdentifier[] { _propDiffuse, _propSpecular, _propNormal, _propEmission },
+      new[] { RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare },
+      new[] { RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare },
+      _propDepth, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
+    );
   }
 
   public void Dispose() {
@@ -68,24 +76,19 @@ public class VXGIRenderer : System.IDisposable {
     _command.BeginSample(_command.name);
 
     _command.GetTemporaryRT(_propDepth, camera.pixelWidth, camera.pixelHeight, 24, FilterMode.Point, RenderTextureFormat.Depth);
-    _command.GetTemporaryRT(_propDiffuse, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
-    _command.GetTemporaryRT(_propNormal, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBFloat);
+    _command.GetTemporaryRT(_propDiffuse, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
+    _command.GetTemporaryRT(_propSpecular, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
+    _command.GetTemporaryRT(_propNormal, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010);
     _command.GetTemporaryRT(_propEmission, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
-    _command.GetTemporaryRT(_propOther, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
     _command.GetTemporaryRT(_propIrradiance,
       (int)(vxgi.diffuseResolutionScale * camera.pixelWidth),
       (int)(vxgi.diffuseResolutionScale * camera.pixelHeight),
       0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf
     );
 
-    var binding = new RenderTargetBinding(
-      new RenderTargetIdentifier[] { _propDiffuse, _propNormal, _propEmission, _propOther },
-      new[] { RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare },
-      new[] { RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare },
-      _propDepth, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
-    );
+    if (vxgi.pass == Pass.ConeTracing) renderContext.SetupCameraProperties(camera);
 
-    _command.SetRenderTarget(binding);
+    _command.SetRenderTarget(_gBufferBinding);
     _command.ClearRenderTarget(true, true, Color.clear);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
@@ -96,11 +99,6 @@ public class VXGIRenderer : System.IDisposable {
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
-
-    if (vxgi.pass == Pass.ConeTracing) {
-      renderContext.SetupCameraProperties(camera);
-      renderContext.DrawSkybox(camera);
-    }
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;
 
@@ -134,13 +132,15 @@ public class VXGIRenderer : System.IDisposable {
 
     _commandReflection.Clear();
 
+    if (vxgi.pass == Pass.ConeTracing) renderContext.DrawSkybox(camera);
+
     _command.BeginSample(_command.name);
 
     _command.ReleaseTemporaryRT(_propDepth);
     _command.ReleaseTemporaryRT(_propDiffuse);
+    _command.ReleaseTemporaryRT(_propSpecular);
     _command.ReleaseTemporaryRT(_propNormal);
     _command.ReleaseTemporaryRT(_propEmission);
-    _command.ReleaseTemporaryRT(_propOther);
     _command.ReleaseTemporaryRT(_propIrradiance);
 
     _command.EndSample(_command.name);

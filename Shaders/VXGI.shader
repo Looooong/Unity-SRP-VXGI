@@ -13,8 +13,6 @@ Shader "Hidden/VXGI"
     {
       Name "ConeTracing"
 
-      Blend SrcAlpha OneMinusSrcAlpha
-
       CGPROGRAM
       #pragma vertex vert
       #pragma fragment frag
@@ -37,9 +35,9 @@ Shader "Hidden/VXGI"
       float3 CameraPosition;
       Texture2D _MainTex;
       Texture2D Depth;
+      Texture2D Specular;
       Texture2D Normal;
       Texture2D Emission;
-      Texture2D Other;
       Texture2D Irradiance;
       float4x4 ClipToWorld;
 
@@ -69,12 +67,12 @@ Shader "Hidden/VXGI"
           float4 worldPosition = mul(ClipToWorld, float4(mad(2.0, i.uv, -1.0), clipZ, 1.0));
           data.worldPosition = worldPosition.xyz / worldPosition.w;
 
-          float2 other = Other.Sample(point_clamp_sampler, i.uv);
+          float2 specular = Specular.Sample(point_clamp_sampler, i.uv);
           data.baseColor = _MainTex.Sample(point_clamp_sampler, i.uv);
-          data.glossiness = other.r;
-          data.metallic = other.g;
+          data.glossiness = specular.r;
+          data.metallic = specular.g;
 
-          data.vecN = Normal.Sample(point_clamp_sampler, i.uv);
+          data.vecN = mad(Normal.Sample(point_clamp_sampler, i.uv), 2.0, -1.0);
           data.vecV = normalize(CameraPosition - data.worldPosition);
 
           data.Initialize();
@@ -135,7 +133,7 @@ Shader "Hidden/VXGI"
           float4 voxel = mul(ClipToVoxel, float4(mad(2.0, i.uv, -1.0), clipZ, 1.0));
           float3 position = voxel.xyz / voxel.w;
 
-          float3 normal = Normal.Sample(point_clamp_sampler, i.uv);
+          float3 normal = mad(Normal.Sample(point_clamp_sampler, i.uv), 2.0, -1.0);
 
           color = float4(IndirectDiffusePixelRadiance(position, normal), 1.0);
         }
