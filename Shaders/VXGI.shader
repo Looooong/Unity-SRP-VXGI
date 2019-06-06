@@ -14,6 +14,7 @@ Shader "Hidden/VXGI"
       Name "ConeTracing"
 
       CGPROGRAM
+      #pragma target 4.5
       #pragma vertex vert
       #pragma fragment frag
       #pragma multi_compile __ TRACE_SUN
@@ -33,12 +34,15 @@ Shader "Hidden/VXGI"
       };
 
       float3 CameraPosition;
+      float4 _MainTex_TexelSize;
+      float4 Irradiance_TexelSize;
       Texture2D _MainTex;
       Texture2D Depth;
       Texture2D Specular;
       Texture2D Normal;
       Texture2D Emission;
       Texture2D Irradiance;
+      Texture2D IrradianceDepth;
       float4x4 ClipToWorld;
 
       v2f vert (appdata_base v)
@@ -47,6 +51,39 @@ Shader "Hidden/VXGI"
         o.vertex = UnityObjectToClipPos(v.vertex);
         o.uv = v.texcoord;
         return o;
+      }
+
+      static int2 GatherOffsets[4] = {
+        int2(0, 1),
+        int2(1, 1),
+        int2(1, 0),
+        int2(0, 0)
+      };
+
+      float3 NearestDepthIrradiance(float2 uv, float depth)
+      {
+        depth = LinearEyeDepth(depth);
+        float4 neighbors = IrradianceDepth.Gather(linear_clamp_sampler, uv);
+        float4 distances;
+
+        float minDist = 1.e8f;
+        float minIndex = -1;
+
+        [unroll]
+        for (int i = 0; i < 4; i++) {
+          distances[i] = distance(depth, LinearEyeDepth(neighbors[i]));
+
+          if (distances[i] < minDist) {
+            minDist = distances[i];
+            minIndex = i;
+          }
+        }
+
+        if (all(distances < 0.1)) {
+          return Irradiance.Sample(linear_clamp_sampler, uv);
+        } else {
+          return Irradiance.Load(int3(mad(uv, Irradiance_TexelSize.zw, -0.5) + GatherOffsets[minIndex], 0));
+        }
       }
 
       FragmentOutput frag (v2f i)
@@ -78,7 +115,7 @@ Shader "Hidden/VXGI"
           data.Initialize();
 
           float3 emission = Emission.Sample(point_clamp_sampler, i.uv);
-          float3 indirectDiffuseRadiance = Irradiance.Sample(linear_clamp_sampler, i.uv);
+          float3 indirectDiffuseRadiance = NearestDepthIrradiance(i.uv, o.depth);
 
           o.color = float4(emission + PixelRadiance(data, indirectDiffuseRadiance), 1.0);
         }
@@ -235,6 +272,43 @@ Shader "Hidden/VXGI"
         return color;
       }
 
+      ENDCG
+    }
+
+    Pass
+    {
+      Name "DepthCopy"
+
+      ZWrite On
+
+      CGPROGRAM
+      #pragma vertex vert
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+
+      struct v2f
+      {
+        float4 vertex : SV_POSITION;
+        float2 uv : TEXCOORD;
+      };
+
+      Texture2D<float> _MainTex;
+      SamplerState point_clamp_sampler;
+
+      v2f vert (appdata_base v)
+      {
+        v2f o;
+        o.vertex = UnityObjectToClipPos(v.vertex);
+        o.uv = v.texcoord;
+        return o;
+      }
+
+      float4 frag (v2f i, out float depth : SV_DEPTH) : SV_TARGET
+      {
+        depth = _MainTex.Sample(point_clamp_sampler, i.uv);
+        return 0.0;
+      }
       ENDCG
     }
   }

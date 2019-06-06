@@ -31,6 +31,7 @@ public class VXGIRenderer : System.IDisposable {
   int _propDiffuse;
   int _propEmission;
   int _propIrradiance;
+  int _propIrradianceDepth;
   int _propNormal;
   int _propSpecular;
   CommandBuffer _command;
@@ -53,6 +54,7 @@ public class VXGIRenderer : System.IDisposable {
     _propDiffuse = Shader.PropertyToID("Diffuse");
     _propEmission = Shader.PropertyToID("Emission");
     _propIrradiance = Shader.PropertyToID("Irradiance");
+    _propIrradianceDepth = Shader.PropertyToID("IrradianceDepth");
     _propNormal = Shader.PropertyToID("Normal");
     _propSpecular = Shader.PropertyToID("Specular");
 
@@ -80,11 +82,12 @@ public class VXGIRenderer : System.IDisposable {
     _command.GetTemporaryRT(_propSpecular, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
     _command.GetTemporaryRT(_propNormal, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010);
     _command.GetTemporaryRT(_propEmission, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
-    _command.GetTemporaryRT(_propIrradiance,
-      (int)(vxgi.diffuseResolutionScale * camera.pixelWidth),
-      (int)(vxgi.diffuseResolutionScale * camera.pixelHeight),
-      0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf
-    );
+
+    int indirectDiffuseWidth = (int)(vxgi.diffuseResolutionScale * camera.pixelWidth);
+    int indirectDiffuseHeight = (int)(vxgi.diffuseResolutionScale * camera.pixelHeight);
+
+    _command.GetTemporaryRT(_propIrradiance, indirectDiffuseWidth, indirectDiffuseHeight, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
+    _command.GetTemporaryRT(_propIrradianceDepth, indirectDiffuseWidth, indirectDiffuseHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
 
     if (vxgi.pass == Pass.ConeTracing) renderContext.SetupCameraProperties(camera);
 
@@ -116,7 +119,10 @@ public class VXGIRenderer : System.IDisposable {
 
     if (vxgi.pass == Pass.ConeTracing) {
       _commandDiffuse.BeginSample(_commandDiffuse.name);
+      _commandDiffuse.SetRenderTarget(_propIrradiance, (RenderTargetIdentifier)_propIrradianceDepth);
+      _commandDiffuse.ClearRenderTarget(true, true, Color.clear);
       _commandDiffuse.Blit(_propDiffuse, _propIrradiance, material, (int)Pass.DiffuseConeTracing);
+      _commandDiffuse.Blit(_propDepth, _propIrradianceDepth, material, 3);
       _commandDiffuse.EndSample(_commandDiffuse.name);
 
       renderContext.ExecuteCommandBuffer(_commandDiffuse);
@@ -142,6 +148,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.ReleaseTemporaryRT(_propNormal);
     _command.ReleaseTemporaryRT(_propEmission);
     _command.ReleaseTemporaryRT(_propIrradiance);
+    _command.ReleaseTemporaryRT(_propIrradianceDepth);
 
     _command.EndSample(_command.name);
 
