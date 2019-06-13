@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
@@ -20,7 +19,7 @@ public class VXGI : MonoBehaviour {
   public bool throttleTracing = false;
   [Range(1f, 100f)]
   public float tracingRate = 10f;
-  public VXGIRenderer.Pass pass = VXGIRenderer.Pass.ConeTracing;
+  public bool visualizeMipmap = false;
   public VXGIRenderer.MipmapSampler mipmapSampler = VXGIRenderer.MipmapSampler.Linear;
   [Range(0f, 9f)]
   public float level = 1f;
@@ -115,11 +114,17 @@ public class VXGI : MonoBehaviour {
 
     renderContext.SetupCameraProperties(camera);
 
-    _command.ClearRenderTarget(true, true, Color.clear);
+    _command.ClearRenderTarget(
+      (camera.clearFlags & CameraClearFlags.Depth) != 0,
+      camera.clearFlags == CameraClearFlags.Color,
+      camera.backgroundColor
+    );
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    if (pass == VXGIRenderer.Pass.Mipmap) {
+    if (camera.clearFlags == CameraClearFlags.Skybox) renderContext.DrawSkybox(camera);
+
+    if (visualizeMipmap) {
       renderer.RenderMipmap(renderContext, camera, this);
     } else {
       SetupShader(renderContext);
