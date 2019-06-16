@@ -7,7 +7,7 @@ public class Parameterizer : System.IDisposable {
   int _propNumThreads = Shader.PropertyToID("NumThreads");
   int _propArguments = Shader.PropertyToID("Arguments");
   ComputeBuffer _arguments = new ComputeBuffer(3, sizeof(int), ComputeBufferType.IndirectArguments);
-  ComputeShader _compute = (ComputeShader)Resources.Load("Compute/Parameterizer");
+  ComputeShader _compute = (ComputeShader)Resources.Load("VXGI/Compute/Parameterizer");
 
   public Parameterizer() {
     _kernelParameterize = _compute.FindKernel("CSParameterize");

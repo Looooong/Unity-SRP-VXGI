@@ -5,7 +5,7 @@ using UnityEngine.Experimental.Rendering;
 public class Mipmapper {
   public ComputeShader compute {
     get {
-      if (_compute == null) _compute = (ComputeShader)Resources.Load("Compute/Mipmapper");
+      if (_compute == null) _compute = (ComputeShader)Resources.Load("VXGI/Compute/Mipmapper");
 
       return _compute;
     }

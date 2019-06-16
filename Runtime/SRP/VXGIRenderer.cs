@@ -8,53 +8,31 @@ public class VXGIRenderer : System.IDisposable {
     Point
   }
 
-  public enum Pass {
-    ConeTracing = 0,
-    DiffuseConeTracing = 1,
-    Mipmap = 2
-  }
-
   public DrawRendererFlags drawRendererFlags {
     get { return _renderPipeline.drawRendererFlags; }
-  }
-  public Material material {
-    get {
-      if (_material == null) {
-        _material = new Material(Shader.Find("Hidden/VXGI"));
-      }
-
-      return _material;
-    }
   }
 
   int _propDepth;
   int _propDiffuse;
   int _propEmission;
-  int _propIrradiance;
-  int _propIrradianceDepth;
   int _propNormal;
   int _propSpecular;
+  float[] _renderScale;
   CommandBuffer _command;
-  CommandBuffer _commandDiffuse;
-  CommandBuffer _commandReflection;
   CullResults _cullResults;
   FilterRenderersSettings _filterSettings;
-  Material _material;
+  LightingShader[] _lightingPasses;
   RenderTargetBinding _gBufferBinding;
   VXGIRenderPipeline _renderPipeline;
 
   public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
     _command = new CommandBuffer { name = "VXGIRenderer" };
-    _commandDiffuse = new CommandBuffer { name = "VXGIRenderer.Diffuse" };
-    _commandReflection = new CommandBuffer { name = "VXGIRenderer.Reflection" };
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
     _renderPipeline = renderPipeline;
 
     _propDepth = Shader.PropertyToID("Depth");
     _propDiffuse = Shader.PropertyToID("Diffuse");
     _propEmission = Shader.PropertyToID("Emission");
-    _propIrradiance = Shader.PropertyToID("Irradiance");
-    _propIrradianceDepth = Shader.PropertyToID("IrradianceDepth");
     _propNormal = Shader.PropertyToID("Normal");
     _propSpecular = Shader.PropertyToID("Specular");
 
@@ -64,10 +42,21 @@ public class VXGIRenderer : System.IDisposable {
       new[] { RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare },
       _propDepth, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
     );
+
+    _renderScale = new float[] { 1f, 1f, 1f, 1f };
+
+    _lightingPasses = new LightingShader[] {
+      new LightingShader(LightingShader.Pass.Emission),
+      new LightingShader(LightingShader.Pass.DirectDiffuseSpecular),
+      new LightingShader(LightingShader.Pass.IndirectDiffuse),
+      new LightingShader(LightingShader.Pass.IndirectSpecular)
+    };
   }
 
   public void Dispose() {
     _command.Dispose();
+
+    foreach (var pass in _lightingPasses) pass.Dispose();
   }
 
   public void RenderDeferred(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
@@ -77,19 +66,13 @@ public class VXGIRenderer : System.IDisposable {
 
     _command.BeginSample(_command.name);
 
-    _command.GetTemporaryRT(_propDepth, camera.pixelWidth, camera.pixelHeight, 24, FilterMode.Point, RenderTextureFormat.Depth);
+    _command.GetTemporaryRT(_propDepth, camera.pixelWidth, camera.pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
     _command.GetTemporaryRT(_propDiffuse, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
     _command.GetTemporaryRT(_propSpecular, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
     _command.GetTemporaryRT(_propNormal, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010);
     _command.GetTemporaryRT(_propEmission, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
 
-    int indirectDiffuseWidth = (int)(vxgi.diffuseResolutionScale * camera.pixelWidth);
-    int indirectDiffuseHeight = (int)(vxgi.diffuseResolutionScale * camera.pixelHeight);
-
-    _command.GetTemporaryRT(_propIrradiance, indirectDiffuseWidth, indirectDiffuseHeight, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
-    _command.GetTemporaryRT(_propIrradianceDepth, indirectDiffuseWidth, indirectDiffuseHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
-
-    if (vxgi.pass == Pass.ConeTracing) renderContext.SetupCameraProperties(camera);
+    renderContext.SetupCameraProperties(camera);
 
     _command.SetRenderTarget(_gBufferBinding);
     _command.ClearRenderTarget(true, true, Color.clear);
@@ -105,52 +88,26 @@ public class VXGIRenderer : System.IDisposable {
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;
 
-    _command.SetGlobalVector("CameraPosition", camera.transform.position);
     _command.SetGlobalMatrix("ClipToWorld", clipToWorld);
     _command.SetGlobalMatrix("ClipToVoxel", vxgi.worldToVoxel * clipToWorld);
     _command.SetGlobalMatrix("WorldToVoxel", vxgi.worldToVoxel);
     _command.SetGlobalMatrix("VoxelToWorld", vxgi.voxelToWorld);
-
+    _command.Blit(_propDepth, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
     _command.EndSample(_command.name);
-
     renderContext.ExecuteCommandBuffer(_command);
-
     _command.Clear();
 
-    if (vxgi.pass == Pass.ConeTracing) {
-      _commandDiffuse.BeginSample(_commandDiffuse.name);
-      _commandDiffuse.SetRenderTarget(_propIrradiance, (RenderTargetIdentifier)_propIrradianceDepth);
-      _commandDiffuse.ClearRenderTarget(true, true, Color.clear);
-      _commandDiffuse.Blit(_propDiffuse, _propIrradiance, material, (int)Pass.DiffuseConeTracing);
-      _commandDiffuse.Blit(_propDepth, _propIrradianceDepth, material, 3);
-      _commandDiffuse.EndSample(_commandDiffuse.name);
+    _renderScale[2] = vxgi.diffuseResolutionScale;
 
-      renderContext.ExecuteCommandBuffer(_commandDiffuse);
-
-      _commandDiffuse.Clear();
+    for (int i = 0; i < _lightingPasses.Length; i++) {
+      _lightingPasses[i].Execute(renderContext, camera, _renderScale[i]);
     }
-
-    _commandReflection.BeginSample(_commandReflection.name);
-    _commandReflection.Blit(_propDiffuse, BuiltinRenderTextureType.CameraTarget, material, (int)vxgi.pass);
-    _commandReflection.EndSample(_commandReflection.name);
-
-    renderContext.ExecuteCommandBuffer(_commandReflection);
-
-    _commandReflection.Clear();
-
-    if (vxgi.pass == Pass.ConeTracing) renderContext.DrawSkybox(camera);
-
-    _command.BeginSample(_command.name);
 
     _command.ReleaseTemporaryRT(_propDepth);
     _command.ReleaseTemporaryRT(_propDiffuse);
     _command.ReleaseTemporaryRT(_propSpecular);
     _command.ReleaseTemporaryRT(_propNormal);
     _command.ReleaseTemporaryRT(_propEmission);
-    _command.ReleaseTemporaryRT(_propIrradiance);
-    _command.ReleaseTemporaryRT(_propIrradianceDepth);
-
-    _command.EndSample(_command.name);
 
     renderContext.ExecuteCommandBuffer(_command);
 
@@ -168,13 +125,12 @@ public class VXGIRenderer : System.IDisposable {
       _command.DisableShaderKeyword("RADIANCE_POINT_SAMPLER");
     }
 
-    _command.SetGlobalFloat("Level", Mathf.Min(vxgi.level, vxgi.radiances.Length));
-    _command.SetGlobalFloat("Step", vxgi.step);
-    _command.DrawProcedural(transform, material, (int)Pass.Mipmap, MeshTopology.Quads, 24, 1);
+    _command.SetGlobalFloat("MipmapLevel", Mathf.Min(vxgi.level, vxgi.radiances.Length));
+    _command.SetGlobalFloat("TracingStep", vxgi.step);
+    _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
 
     _command.EndSample(_command.name);
 
-    renderContext.DrawSkybox(camera);
     renderContext.ExecuteCommandBuffer(_command);
 
     _command.Clear();

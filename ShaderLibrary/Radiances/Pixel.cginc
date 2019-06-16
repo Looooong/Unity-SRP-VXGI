@@ -94,9 +94,4 @@
 
     return radiance * 2.0 / cones;
   }
-
-  float3 PixelRadiance(LightingData data, float3 indirectDiffusePixelRadiance)
-  {
-    return DirectPixelRadiance(data) + IndirectSpecularPixelRadiance(data) + data.baseColor * indirectDiffusePixelRadiance;
-  }
 #endif

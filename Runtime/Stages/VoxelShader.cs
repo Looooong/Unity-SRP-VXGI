@@ -5,7 +5,7 @@ using UnityEngine.Experimental.Rendering;
 public class VoxelShader : System.IDisposable {
   public ComputeShader compute {
     get {
-      if (_compute == null) _compute = (ComputeShader)Resources.Load("Compute/VoxelShader");
+      if (_compute == null) _compute = (ComputeShader)Resources.Load("VXGI/Compute/VoxelShader");
 
       return _compute;
     }

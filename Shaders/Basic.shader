@@ -78,7 +78,7 @@
         float3 emission  : SV_TARGET3;
       };
 
-      v2f vert (appdata_tan v)
+      v2f vert(appdata_tan v)
       {
         float3 normal = UnityObjectToWorldNormal(v.normal);
         float3 tangent = UnityObjectToWorldDir(v.tangent.xyz);
@@ -94,7 +94,7 @@
         return o;
       }
 
-      FragmentOutput frag (v2f i)
+      FragmentOutput frag(v2f i)
       {
         float4 color = _Color * tex2D(_MainTex, i.uv);
 
@@ -178,7 +178,7 @@
         float axis : TEXCOORD1; // Projection axis
       };
 
-      v2g vert (appdata_base v)
+      v2g vert(appdata_base v)
       {
         v2g o;
         o.vertex = mul(WorldToVoxel, mul(unity_ObjectToWorld, v.vertex));
@@ -210,7 +210,7 @@
       }
 
       [maxvertexcount(3)]
-      void geom (triangle v2g i[3], inout TriangleStream<g2f> triStream)
+      void geom(triangle v2g i[3], inout TriangleStream<g2f> triStream)
       {
         float3 normal = normalize(abs(cross(i[1].vertex - i[0].vertex, i[2].vertex - i[0].vertex)));
         uint axis = AXIS_Z;
@@ -262,7 +262,7 @@
         return position;
       }
 
-      fixed frag (g2f i) : SV_TARGET
+      fixed frag(g2f i) : SV_TARGET
       {
         #ifdef _METALLICGLOSSMAP
           float metallic = tex2D(_MetallicGlossMap, i.uv).r;
