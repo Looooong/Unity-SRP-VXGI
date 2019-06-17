@@ -6,6 +6,14 @@ public class VXGIRenderPipelineAsset : RenderPipelineAsset {
   public bool dynamicBatching;
   public bool SRPBatching;
 
+  public override Material GetDefaultMaterial() {
+    return (Material)Resources.Load("VXGI/Material/Default");
+  }
+
+  public override Shader GetDefaultShader() {
+    return Shader.Find("Voxel-based Shader/Basic");
+  }
+
   protected override IRenderPipeline InternalCreatePipeline() {
     return new VXGIRenderPipeline(this);
   }
