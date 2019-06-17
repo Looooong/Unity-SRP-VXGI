@@ -1,6 +1,7 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.PostProcessing;
 
 public class VXGIRenderer : System.IDisposable {
   public enum MipmapSampler {
@@ -12,6 +13,7 @@ public class VXGIRenderer : System.IDisposable {
     get { return _renderPipeline.drawRendererFlags; }
   }
 
+  int _dummyID;
   int _propDepth;
   int _propDiffuse;
   int _propEmission;
@@ -22,6 +24,7 @@ public class VXGIRenderer : System.IDisposable {
   CullResults _cullResults;
   FilterRenderersSettings _filterSettings;
   LightingShader[] _lightingPasses;
+  PostProcessRenderContext _postProcessRenderContext;
   RenderTargetBinding _gBufferBinding;
   VXGIRenderPipeline _renderPipeline;
 
@@ -30,6 +33,7 @@ public class VXGIRenderer : System.IDisposable {
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
     _renderPipeline = renderPipeline;
 
+    _dummyID = Shader.PropertyToID("Dummy");
     _propDepth = Shader.PropertyToID("Depth");
     _propDiffuse = Shader.PropertyToID("Diffuse");
     _propEmission = Shader.PropertyToID("Emission");
@@ -51,6 +55,8 @@ public class VXGIRenderer : System.IDisposable {
       new LightingShader(LightingShader.Pass.IndirectDiffuse),
       new LightingShader(LightingShader.Pass.IndirectSpecular)
     };
+
+    _postProcessRenderContext = new PostProcessRenderContext();
   }
 
   public void Dispose() {
@@ -133,6 +139,33 @@ public class VXGIRenderer : System.IDisposable {
 
     renderContext.ExecuteCommandBuffer(_command);
 
+    _command.Clear();
+  }
+
+  public void RenderPostProcessing(ScriptableRenderContext renderContext, Camera camera) {
+    var layer = camera.GetComponent<PostProcessLayer>();
+
+    if (layer == null || !layer.isActiveAndEnabled) return;
+
+    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
+
+    _postProcessRenderContext.Reset();
+    _postProcessRenderContext.camera = camera;
+    _postProcessRenderContext.command = _command;
+    _postProcessRenderContext.destination = BuiltinRenderTextureType.CameraTarget;
+    _postProcessRenderContext.source = _dummyID;
+    _postProcessRenderContext.sourceFormat = RenderTextureFormat.ARGBHalf;
+
+    if (layer.HasOpaqueOnlyEffects(_postProcessRenderContext)) {
+      _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
+      layer.RenderOpaqueOnly(_postProcessRenderContext);
+    }
+
+    _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
+    layer.Render(_postProcessRenderContext);
+
+    _command.ReleaseTemporaryRT(_dummyID);
+    renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
 }
