@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "displayName": "Voxel-based Global Illumination",
   "unity": "2018.1",
+  "dependencies": {
+    "com.unity.postprocessing": "2.1.7"
+  },
   "keywords": [
     "graphics",
     "global illumination",

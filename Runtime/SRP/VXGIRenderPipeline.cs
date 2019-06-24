@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.PostProcessing;
 
 public class VXGIRenderPipeline : RenderPipeline {
   public DrawRendererFlags drawRendererFlags {
@@ -41,6 +42,14 @@ public class VXGIRenderPipeline : RenderPipeline {
     BeginFrameRendering(cameras);
 
     foreach (var camera in cameras) {
+      var layer = camera.GetComponent<PostProcessLayer>();
+
+      if (layer != null && layer.isActiveAndEnabled) {
+        layer.UpdateVolumeSystem(camera, _command);
+        renderContext.ExecuteCommandBuffer(_command);
+        _command.Clear();
+      }
+
       BeginCameraRendering(camera);
 
       var vxgi = camera.GetComponent<VXGI>();

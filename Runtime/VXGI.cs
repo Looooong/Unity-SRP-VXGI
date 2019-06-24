@@ -129,6 +129,7 @@ public class VXGI : MonoBehaviour {
     } else {
       SetupShader(renderContext);
       renderer.RenderDeferred(renderContext, camera, this);
+      renderer.RenderPostProcessing(renderContext, camera);
     }
 
     renderContext.Submit();
