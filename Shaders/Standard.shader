@@ -1,4 +1,4 @@
-﻿Shader "Voxel-based Shader/Basic"
+﻿Shader "VXGI/Standard"
 {
   Properties
   {

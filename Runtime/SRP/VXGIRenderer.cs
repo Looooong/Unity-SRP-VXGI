@@ -12,13 +12,18 @@ public class VXGIRenderer : System.IDisposable {
   public DrawRendererFlags drawRendererFlags {
     get { return _renderPipeline.drawRendererFlags; }
   }
+  public RendererConfiguration rendererConfiguration {
+    get { return _renderPipeline.rendererConfiguration; }
+  }
 
+  int _cameraDepthTextureID;
+  int _cameraDepthNormalsTextureID;
+  int _cameraGBufferTexture0ID;
+  int _cameraGBufferTexture1ID;
+  int _cameraGBufferTexture2ID;
+  int _cameraGBufferTexture3ID;
   int _dummyID;
-  int _propDepth;
-  int _propDiffuse;
-  int _propEmission;
-  int _propNormal;
-  int _propSpecular;
+  int _frameBufferID;
   float[] _renderScale;
   CommandBuffer _command;
   CullResults _cullResults;
@@ -33,18 +38,20 @@ public class VXGIRenderer : System.IDisposable {
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
     _renderPipeline = renderPipeline;
 
+    _cameraDepthTextureID = Shader.PropertyToID("_CameraDepthTexture");
+    _cameraDepthNormalsTextureID = Shader.PropertyToID("_CameraDepthNormalsTexture");
+    _cameraGBufferTexture0ID = Shader.PropertyToID("_CameraGBufferTexture0");
+    _cameraGBufferTexture1ID = Shader.PropertyToID("_CameraGBufferTexture1");
+    _cameraGBufferTexture2ID = Shader.PropertyToID("_CameraGBufferTexture2");
+    _cameraGBufferTexture3ID = Shader.PropertyToID("_CameraGBufferTexture3");
     _dummyID = Shader.PropertyToID("Dummy");
-    _propDepth = Shader.PropertyToID("Depth");
-    _propDiffuse = Shader.PropertyToID("Diffuse");
-    _propEmission = Shader.PropertyToID("Emission");
-    _propNormal = Shader.PropertyToID("Normal");
-    _propSpecular = Shader.PropertyToID("Specular");
+    _frameBufferID = Shader.PropertyToID("FrameBuffer");
 
     _gBufferBinding = new RenderTargetBinding(
-      new RenderTargetIdentifier[] { _propDiffuse, _propSpecular, _propNormal, _propEmission },
+      new RenderTargetIdentifier[] { _cameraGBufferTexture0ID, _cameraGBufferTexture1ID, _cameraGBufferTexture2ID, _cameraGBufferTexture3ID },
       new[] { RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare, RenderBufferLoadAction.DontCare },
       new[] { RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare, RenderBufferStoreAction.DontCare },
-      _propDepth, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
+      _cameraDepthTextureID, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
     );
 
     _renderScale = new float[] { 1f, 1f, 1f, 1f };
@@ -70,16 +77,17 @@ public class VXGIRenderer : System.IDisposable {
     if (!CullResults.GetCullingParameters(camera, out cullingParams)) return;
     CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
 
-    _command.BeginSample(_command.name);
-
-    _command.GetTemporaryRT(_propDepth, camera.pixelWidth, camera.pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
-    _command.GetTemporaryRT(_propDiffuse, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
-    _command.GetTemporaryRT(_propSpecular, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32);
-    _command.GetTemporaryRT(_propNormal, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010);
-    _command.GetTemporaryRT(_propEmission, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
-
     renderContext.SetupCameraProperties(camera);
 
+    int width = camera.pixelWidth;
+    int height = camera.pixelHeight;
+
+    _command.GetTemporaryRT(_cameraDepthTextureID, width, height, 16, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_cameraGBufferTexture0ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_cameraGBufferTexture1ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_cameraGBufferTexture2ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_cameraGBufferTexture3ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_frameBufferID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
     _command.SetRenderTarget(_gBufferBinding);
     _command.ClearRenderTarget(true, true, Color.clear);
     renderContext.ExecuteCommandBuffer(_command);
@@ -87,10 +95,18 @@ public class VXGIRenderer : System.IDisposable {
 
     var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("Deferred"));
     drawSettings.flags = _renderPipeline.drawRendererFlags;
-    drawSettings.rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
+    drawSettings.rendererConfiguration = _renderPipeline.rendererConfiguration;
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
+
+    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+    _command.Blit(_cameraDepthTextureID, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
+    _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
+    _command.Blit(_dummyID, _frameBufferID, UtilityShader.material, (int)UtilityShader.Pass.GrabCopy);
+    _command.ReleaseTemporaryRT(_dummyID);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;
 
@@ -98,25 +114,40 @@ public class VXGIRenderer : System.IDisposable {
     _command.SetGlobalMatrix("ClipToVoxel", vxgi.worldToVoxel * clipToWorld);
     _command.SetGlobalMatrix("WorldToVoxel", vxgi.worldToVoxel);
     _command.SetGlobalMatrix("VoxelToWorld", vxgi.voxelToWorld);
-    _command.Blit(_propDepth, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
-    _command.EndSample(_command.name);
+
+    bool depthNormalsNeeded = (camera.depthTextureMode & DepthTextureMode.DepthNormals) != DepthTextureMode.None;
+
+    if (depthNormalsNeeded) {
+      _command.GetTemporaryRT(_cameraDepthNormalsTextureID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+      _command.Blit(_cameraDepthTextureID, _cameraDepthNormalsTextureID, UtilityShader.material, (int)UtilityShader.Pass.EncodeDepthNormal);
+    }
+
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
     _renderScale[2] = vxgi.diffuseResolutionScale;
 
     for (int i = 0; i < _lightingPasses.Length; i++) {
-      _lightingPasses[i].Execute(renderContext, camera, _renderScale[i]);
+      _lightingPasses[i].Execute(renderContext, camera, _frameBufferID, _renderScale[i]);
     }
 
-    _command.ReleaseTemporaryRT(_propDepth);
-    _command.ReleaseTemporaryRT(_propDiffuse);
-    _command.ReleaseTemporaryRT(_propSpecular);
-    _command.ReleaseTemporaryRT(_propNormal);
-    _command.ReleaseTemporaryRT(_propEmission);
+    RenderPostProcessing(renderContext, camera);
 
+    _command.Blit(_frameBufferID, BuiltinRenderTextureType.CameraTarget);
+
+    RenderPostProcessingDebug(renderContext, camera);
+
+    if (depthNormalsNeeded) {
+      _command.ReleaseTemporaryRT(_cameraDepthNormalsTextureID);
+    }
+
+    _command.ReleaseTemporaryRT(_cameraDepthTextureID);
+    _command.ReleaseTemporaryRT(_cameraGBufferTexture0ID);
+    _command.ReleaseTemporaryRT(_cameraGBufferTexture1ID);
+    _command.ReleaseTemporaryRT(_cameraGBufferTexture2ID);
+    _command.ReleaseTemporaryRT(_cameraGBufferTexture3ID);
+    _command.ReleaseTemporaryRT(_frameBufferID);
     renderContext.ExecuteCommandBuffer(_command);
-
     _command.Clear();
   }
 
@@ -147,25 +178,37 @@ public class VXGIRenderer : System.IDisposable {
 
     if (layer == null || !layer.isActiveAndEnabled) return;
 
-    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf);
+    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
 
     _postProcessRenderContext.Reset();
     _postProcessRenderContext.camera = camera;
     _postProcessRenderContext.command = _command;
-    _postProcessRenderContext.destination = BuiltinRenderTextureType.CameraTarget;
+    _postProcessRenderContext.destination = _frameBufferID;
     _postProcessRenderContext.source = _dummyID;
     _postProcessRenderContext.sourceFormat = RenderTextureFormat.ARGBHalf;
 
     if (layer.HasOpaqueOnlyEffects(_postProcessRenderContext)) {
-      _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
+      _command.Blit(_frameBufferID, _dummyID);
       layer.RenderOpaqueOnly(_postProcessRenderContext);
     }
 
-    _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
+    _command.Blit(_frameBufferID, _dummyID);
     layer.Render(_postProcessRenderContext);
 
     _command.ReleaseTemporaryRT(_dummyID);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
+  }
+
+  public void RenderPostProcessingDebug(ScriptableRenderContext renderContext, Camera camera) {
+    var postProcessDebug = camera.GetComponent<PostProcessDebug>();
+
+    if (postProcessDebug == null) return;
+
+    postProcessDebug.SendMessage("OnPostRender");
+
+    foreach (var command in camera.GetCommandBuffers(CameraEvent.AfterImageEffects)) {
+      renderContext.ExecuteCommandBuffer(command);
+    }
   }
 }

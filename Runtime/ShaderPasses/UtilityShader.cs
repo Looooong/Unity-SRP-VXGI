@@ -3,7 +3,9 @@ using UnityEngine;
 public static class UtilityShader {
   public enum Pass {
     DepthCopy = 0,
-    LowResComposite = 1
+    EncodeDepthNormal = 1,
+    GrabCopy = 2,
+    LowResComposite = 3
   }
 
   public static Material material {

@@ -23,17 +23,77 @@ Shader "Hidden/VXGI/Utility"
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
 
-      sampler2D Depth;
+      sampler2D _CameraDepthTexture;
 
       float4 frag(BlitInput i, out float depth : SV_DEPTH) : SV_TARGET
       {
-        depth = tex2D(Depth, i.uv).r;
+        depth = tex2D(_CameraDepthTexture, i.uv).r;
 
         if (Linear01Depth(depth) < 1.0) {
           return float4(0.0, 0.0, 0.0, 1.0);
         } else {
           return 1.0;
         }
+      }
+      ENDHLSL
+    }
+
+    Pass
+    {
+      Name "EncodeDepthNormal"
+
+      HLSLPROGRAM
+      #pragma vertex BlitVertex
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
+
+      sampler2D _CameraDepthTexture;
+      sampler2D _CameraGBufferTexture2;
+
+      float4 frag(BlitInput i) : SV_TARGET
+      {
+        return EncodeDepthNormal(
+          tex2D(_CameraDepthTexture, i.uv).r,
+          normalize(mad(tex2D(_CameraGBufferTexture2, i.uv).rgb, 2.0, -1.0))
+        );
+      }
+      ENDHLSL
+    }
+
+    Pass
+    {
+      Name "GrabCopy"
+
+      HLSLPROGRAM
+      #pragma vertex vert
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+
+      struct v2f
+      {
+        float4 position : SV_POSITION;
+        float4 uv : TEXCOORD;
+      };
+
+      sampler2D _MainTex;
+
+      v2f vert(appdata_base v)
+      {
+        v2f o;
+        o.position = UnityObjectToClipPos(v.vertex);
+        o.uv = ComputeScreenPos(o.position);
+
+        if (_ProjectionParams.x < 0.0) o.uv.y = 1.0 - o.uv.y;
+
+        return o;
+      }
+
+      float4 frag(v2f i) : SV_TARGET
+      {
+        return tex2Dproj(_MainTex, i.uv);
       }
       ENDHLSL
     }
@@ -52,7 +112,7 @@ Shader "Hidden/VXGI/Utility"
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
 
-      Texture2D<float> Depth;
+      Texture2D<float> _CameraDepthTexture;
       Texture2D<float3> LowResColor;
       Texture2D<float> LowResDepth;
       SamplerState point_clamp_sampler;
@@ -68,7 +128,7 @@ Shader "Hidden/VXGI/Utility"
 
       float3 frag(BlitInput i) : SV_TARGET
       {
-        float depth = LinearEyeDepth(Depth.Sample(point_clamp_sampler, i.uv));
+        float depth = LinearEyeDepth(_CameraDepthTexture.Sample(point_clamp_sampler, i.uv));
         float4 neighbors = LowResDepth.Gather(point_clamp_sampler, i.uv);
         float4 distances;
 
@@ -94,4 +154,6 @@ Shader "Hidden/VXGI/Utility"
       ENDHLSL
     }
   }
+
+  Fallback Off
 }

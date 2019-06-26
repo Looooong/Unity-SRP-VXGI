@@ -129,10 +129,7 @@ public class VXGI : MonoBehaviour {
     } else {
       SetupShader(renderContext);
       renderer.RenderDeferred(renderContext, camera, this);
-      renderer.RenderPostProcessing(renderContext, camera);
     }
-
-    renderContext.Submit();
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -233,7 +230,8 @@ public class VXGI : MonoBehaviour {
       colorFormat = RenderTextureFormat.ARGBHalf,
       dimension = TextureDimension.Tex3D,
       enableRandomWrite = true,
-      msaaSamples = 1
+      msaaSamples = 1,
+      sRGB = false
     };
   }
 

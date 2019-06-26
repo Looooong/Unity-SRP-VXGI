@@ -103,4 +103,6 @@ Shader "Hidden/VXGI/Visualization"
       ENDCG
     }
   }
+
+  Fallback Off
 }

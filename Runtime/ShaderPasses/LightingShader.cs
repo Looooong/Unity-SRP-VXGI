@@ -43,27 +43,27 @@ public class LightingShader : System.IDisposable {
     _command.Dispose();
   }
 
-  public void Execute(ScriptableRenderContext renderContext, Camera camera, float scale = 1f) {
+  public void Execute(ScriptableRenderContext renderContext, Camera camera, RenderTargetIdentifier destination, float scale = 1f) {
     scale = Mathf.Clamp01(scale);
 
     _command.BeginSample(_command.name);
-    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.R8);
+    _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
 
     if (scale == 1f) {
-      _command.Blit(_dummyID, BuiltinRenderTextureType.CameraTarget, material, (int)_pass);
+      _command.Blit(_dummyID, destination, material, (int)_pass);
     } else {
       int lowResWidth = (int)(scale * camera.pixelWidth);
       int lowResHeight = (int)(scale * camera.pixelHeight);
 
-      _command.GetTemporaryRT(_lowResColorID, lowResWidth, lowResHeight, 0, FilterMode.Bilinear, RenderTextureFormat.RGB111110Float);
-      _command.GetTemporaryRT(_lowResDepthID, lowResWidth, lowResHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth);
+      _command.GetTemporaryRT(_lowResColorID, lowResWidth, lowResHeight, 0, FilterMode.Bilinear, RenderTextureFormat.RGB111110Float, RenderTextureReadWrite.Linear);
+      _command.GetTemporaryRT(_lowResDepthID, lowResWidth, lowResHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
 
       _command.SetRenderTarget(_lowResColorID, (RenderTargetIdentifier)_lowResDepthID);
       _command.ClearRenderTarget(true, true, Color.clear);
 
       _command.Blit(_dummyID, _lowResColorID, material, (int)_pass);
       _command.Blit(_dummyID, _lowResDepthID, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
-      _command.Blit(_lowResColorID, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.LowResComposite);
+      _command.Blit(_lowResColorID, destination, UtilityShader.material, (int)UtilityShader.Pass.LowResComposite);
 
       _command.ReleaseTemporaryRT(_lowResColorID);
       _command.ReleaseTemporaryRT(_lowResDepthID);
