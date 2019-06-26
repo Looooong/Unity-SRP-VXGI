@@ -47,13 +47,14 @@ public class VXGIRenderer : System.IDisposable {
       _propDepth, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare
     );
 
-    _renderScale = new float[] { 1f, 1f, 1f, 1f };
+    _renderScale = new float[] { 1f, 1f, 1f, 1f, 1f };
 
     _lightingPasses = new LightingShader[] {
       new LightingShader(LightingShader.Pass.Emission),
       new LightingShader(LightingShader.Pass.DirectDiffuseSpecular),
       new LightingShader(LightingShader.Pass.IndirectDiffuse),
-      new LightingShader(LightingShader.Pass.IndirectSpecular)
+      new LightingShader(LightingShader.Pass.IndirectSpecular),
+      new LightingShader(LightingShader.Pass.SphericalHarmonics)
     };
 
     _postProcessRenderContext = new PostProcessRenderContext();
@@ -87,7 +88,7 @@ public class VXGIRenderer : System.IDisposable {
 
     var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("Deferred"));
     drawSettings.flags = _renderPipeline.drawRendererFlags;
-    drawSettings.rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
+    drawSettings.rendererConfiguration = _renderPipeline.rendererConfiguration;
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);

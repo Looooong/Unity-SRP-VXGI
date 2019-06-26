@@ -145,12 +145,32 @@ Shader "Hidden/VXGI/Lighting"
         data.glossiness = specular.r;
         data.metallic = specular.g;
 
-        data.vecN = mad(Normal.Sample(point_clamp_sampler, i.uv), 2.0, -1.0);
+        data.vecN = normalize(mad(Normal.Sample(point_clamp_sampler, i.uv), 2.0, -1.0));
         data.vecV = normalize(_WorldSpaceCameraPos - data.worldPosition);
 
         data.Initialize();
 
         return IndirectSpecularPixelRadiance(data);
+      }
+      ENDHLSL
+    }
+
+    Pass
+    {
+      Name "SphericalHarmonics"
+
+      HLSLPROGRAM
+      #pragma vertex BlitVertex
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
+
+      sampler2D Normal;
+
+      float3 frag(BlitInput i) : SV_TARGET
+      {
+        return ShadeSH9(float4(mad(tex2D(Normal, i.uv).rgb, 2.0, -1.0), 1.0));
       }
       ENDHLSL
     }

@@ -6,6 +6,10 @@ public class VXGIRenderPipelineAsset : RenderPipelineAsset {
   public bool dynamicBatching;
   public bool SRPBatching;
 
+  [Header("Lighting Settings")]
+  public bool environmentLighting = true;
+  public bool environmentReflections = true;
+
   public override Material GetDefaultMaterial() {
     return (Material)Resources.Load("VXGI/Material/Default");
   }

@@ -7,11 +7,15 @@ public class VXGIRenderPipeline : RenderPipeline {
   public DrawRendererFlags drawRendererFlags {
     get { return _drawRendererFlags; }
   }
+  public RendererConfiguration rendererConfiguration {
+    get { return _rendererConfiguration; }
+  }
 
   CommandBuffer _command;
   CullResults _cullResults;
   DrawRendererFlags _drawRendererFlags;
   FilterRenderersSettings _filterSettings;
+  RendererConfiguration _rendererConfiguration;
   VXGIRenderer _renderer;
 
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
@@ -21,6 +25,11 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     _drawRendererFlags = DrawRendererFlags.None;
     if (asset.dynamicBatching) _drawRendererFlags |= DrawRendererFlags.EnableDynamicBatching;
+
+    _rendererConfiguration = RendererConfiguration.None;
+
+    if (asset.environmentLighting) _rendererConfiguration |= RendererConfiguration.PerObjectLightProbe;
+    if (asset.environmentReflections) _rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
 
     Shader.globalRenderPipeline = "VXGI";
     Shader.SetGlobalVectorArray("LightColors", new Vector4[64]);

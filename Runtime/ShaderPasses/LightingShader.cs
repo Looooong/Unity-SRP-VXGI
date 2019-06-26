@@ -7,7 +7,8 @@ public class LightingShader : System.IDisposable {
     Emission = 0,
     DirectDiffuseSpecular = 1,
     IndirectDiffuse = 2,
-    IndirectSpecular = 3
+    IndirectSpecular = 3,
+    SphericalHarmonics = 4
   }
 
   public static Material material {
