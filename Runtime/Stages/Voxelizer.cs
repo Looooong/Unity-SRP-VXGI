@@ -83,6 +83,7 @@ public class Voxelizer : System.IDisposable {
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
 
     _drawSettings.flags = renderer.drawRendererFlags;
+    _drawSettings.rendererConfiguration = renderer.rendererConfiguration;
 
     renderContext.ExecuteCommandBuffer(_command);
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref _drawSettings, _filterSettings);
@@ -114,7 +115,8 @@ public class Voxelizer : System.IDisposable {
       colorFormat = RenderTextureFormat.R8,
       dimension = TextureDimension.Tex2D,
       memoryless = RenderTextureMemoryless.Color | RenderTextureMemoryless.Depth | RenderTextureMemoryless.MSAA,
-      volumeDepth = 1
+      volumeDepth = 1,
+      sRGB = false
     };
   }
 

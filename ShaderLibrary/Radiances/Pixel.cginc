@@ -62,17 +62,17 @@
     return data.specularColor * radiance.rgb * data.NdotR;
   }
 
-  float3 IndirectDiffusePixelRadiance(float3 voxelPosition, float3 normal)
+  float3 IndirectDiffusePixelRadiance(LightingData data)
   {
-    if (TextureSDF(voxelPosition / Resolution) < 0.0) return 0.0;
+    if (TextureSDF(data.voxelPosition / Resolution) < 0.0) return 0.0;
 
-    float3 apex = mad(0.5, normal, voxelPosition) / Resolution;
+    float3 apex = mad(0.5, data.vecN, data.voxelPosition) / Resolution;
     float3 radiance = 0.0;
     uint cones = 0;
 
     for (uint i = 0; i < 32; i++) {
       float3 unit = Directions[i];
-      float NdotL = dot(normal, unit);
+      float NdotL = dot(data.vecN, unit);
 
       if (NdotL <= 0.0) continue;
 
@@ -92,6 +92,6 @@
       cones++;
     }
 
-    return radiance * 2.0 / cones;
+    return data.diffuseColor * radiance * 2.0 / cones;
   }
 #endif

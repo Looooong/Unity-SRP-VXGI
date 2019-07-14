@@ -10,7 +10,6 @@
     float3 worldPosition;
 
     // Colors
-    float3 baseColor;
     float3 diffuseColor;
     float3 specularColor;
 
@@ -37,9 +36,6 @@
     void Initialize()
     {
       voxelPosition = mul(WorldToVoxel, float4(worldPosition, 1.0)).xyz;
-
-      diffuseColor = (1.0 - metallic) * baseColor;
-      specularColor = metallic * baseColor;
 
       perceptualRoughness = 1.0 - glossiness;
       roughness = 1.0 - glossiness * glossiness;
