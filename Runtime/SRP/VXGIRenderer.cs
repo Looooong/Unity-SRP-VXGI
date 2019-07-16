@@ -82,7 +82,7 @@ public class VXGIRenderer : System.IDisposable {
     int width = camera.pixelWidth;
     int height = camera.pixelHeight;
 
-    _command.GetTemporaryRT(_cameraDepthTextureID, width, height, 16, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
+    _command.GetTemporaryRT(_cameraDepthTextureID, width, height, 24, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
     _command.GetTemporaryRT(_cameraGBufferTexture0ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
     _command.GetTemporaryRT(_cameraGBufferTexture1ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
     _command.GetTemporaryRT(_cameraGBufferTexture2ID, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB2101010, RenderTextureReadWrite.Linear);
@@ -99,6 +99,12 @@ public class VXGIRenderer : System.IDisposable {
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
+
+    if (camera.cameraType != CameraType.SceneView) {
+      _command.EnableShaderKeyword("PROJECTION_PARAMS_X");
+    } else {
+      _command.DisableShaderKeyword("PROJECTION_PARAMS_X");
+    }
 
     _command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
     _command.Blit(_cameraDepthTextureID, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
