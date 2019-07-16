@@ -54,7 +54,7 @@ Shader "Hidden/VXGI/Lighting"
       HLSLPROGRAM
       #pragma vertex BlitVertex
       #pragma fragment frag
-      #pragma multi_compile ___ UNITY_HDR_ON
+      #pragma multi_compile _ UNITY_HDR_ON
 
       float3 frag(BlitInput i) : SV_TARGET
       {

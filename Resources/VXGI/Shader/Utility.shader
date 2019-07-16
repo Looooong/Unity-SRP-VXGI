@@ -69,6 +69,7 @@ Shader "Hidden/VXGI/Utility"
       HLSLPROGRAM
       #pragma vertex vert
       #pragma fragment frag
+      #pragma multi_compile _ PROJECTION_PARAMS_X
 
       #include "UnityCG.cginc"
 
@@ -86,7 +87,9 @@ Shader "Hidden/VXGI/Utility"
         o.position = UnityObjectToClipPos(v.vertex);
         o.uv = ComputeScreenPos(o.position);
 
+#ifdef PROJECTION_PARAMS_X
         if (_ProjectionParams.x < 0.0) o.uv.y = 1.0 - o.uv.y;
+#endif
 
         return o;
       }
