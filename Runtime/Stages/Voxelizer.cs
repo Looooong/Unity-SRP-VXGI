@@ -4,14 +4,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 public class Voxelizer : System.IDisposable {
-  public Vector3 center = new Vector3(0f, 0f, 0f);
-  public List<Vector4> lightColors {
-    get { return _lightColors; }
-  }
-  public List<Vector4> lightPositions {
-    get { return _lightPositions; }
-  }
-
   int _antiAliasing;
   int _propDummyTarget;
   int _resolution;
@@ -21,8 +13,6 @@ public class Voxelizer : System.IDisposable {
   CullResults _cullResults;
   DrawRendererSettings _drawSettings;
   FilterRenderersSettings _filterSettings;
-  List<Vector4> _lightColors;
-  List<Vector4> _lightPositions;
   Rect _rect;
   RenderTextureDescriptor _cameraDescriptor;
   VXGI _vxgi;
@@ -31,8 +21,6 @@ public class Voxelizer : System.IDisposable {
     _vxgi = vxgi;
 
     _command = new CommandBuffer { name = "Voxelizer" };
-    _lightColors = new List<Vector4>(16);
-    _lightPositions = new List<Vector4>(16);
     _rect = new Rect(0f, 0f, 1f, 1f);
 
     _propDummyTarget = Shader.PropertyToID("DummyTarget");
@@ -58,13 +46,9 @@ public class Voxelizer : System.IDisposable {
     if (!CullResults.GetCullingParameters(_camera, out cullingParams)) return;
     CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
 
-    _lightColors.Clear();
-    _lightPositions.Clear();
-
     foreach (var light in _cullResults.visibleLights) {
-      if (light.lightType == LightType.Point) {
-        _lightColors.Add(light.finalColor);
-        _lightPositions.Add(light.light.transform.position);
+      if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
+        _vxgi.lights.Add(new LightSource(light));
       }
     }
 

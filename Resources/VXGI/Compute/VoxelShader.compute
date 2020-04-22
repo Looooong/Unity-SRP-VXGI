@@ -1,10 +1,10 @@
 ﻿#pragma kernel CSAverage
 #pragma kernel CSAverage PLATFORM_LINUX
 #pragma kernel CSRender
-#pragma kernel CSRender TRACE_SUN
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/RadianceData.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelLightingData.hlsl"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Voxel.cginc"
 
 RWTexture3D<float4> Target;
@@ -48,8 +48,14 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   GroupMemoryBarrierWithGroupSync();
 
+  VoxelLightingData lightingData;
+  lightingData.color = color.rgb;
+  lightingData.voxelPosition = position;
+  lightingData.vecN = normal;
+  lightingData.Initialize();
+
   RadianceData d;
-  d.color.rgb = emission + VoxelRadiance(position, normal, color.rgb);
+  d.color.rgb = emission + VoxelRadiance(lightingData);
   d.color.a = 1.0;
   d.count = 1;
 

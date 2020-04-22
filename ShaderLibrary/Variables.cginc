@@ -1,16 +1,15 @@
 #ifndef VXGI_VARIABLES
   #define VXGI_VARIABLES
 
+  #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/LightSource.hlsl"
+
   uint Resolution;
   uint LightCount;
-  float3 LightColors[64];
-  float3 LightPositions[64];
-  float3 SunColor;
-  float3 SunDirection;
   float4x4 VoxelToWorld;
   float4x4 WorldToVoxel;
   SamplerState point_clamp_sampler;
   SamplerState linear_clamp_sampler;
+  StructuredBuffer<LightSource> LightSources;
 
   // Cone tracing direction for indirect diffuse calculations
   static float3 Directions[32] = {
