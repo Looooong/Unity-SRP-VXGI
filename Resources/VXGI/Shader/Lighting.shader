@@ -81,7 +81,6 @@ Shader "Hidden/VXGI/Lighting"
       HLSLPROGRAM
       #pragma vertex BlitVertex
       #pragma fragment frag
-      #pragma multi_compile __ TRACE_SUN
 
       float3 frag(BlitInput i) : SV_TARGET
       {

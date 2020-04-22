@@ -1,15 +1,17 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 [ExecuteInEditMode]
 [RequireComponent(typeof(Camera))]
 public class VXGI : MonoBehaviour {
+  public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
   public enum Resolution { Low = 33, Medium = 65, High = 129, VeryHigh = 257 }
 
   public Vector3 center;
-  public Light sun;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
   public Resolution resolution = Resolution.Medium;
   [Range(.1f, 1f)]
@@ -41,6 +43,9 @@ public class VXGI : MonoBehaviour {
   }
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
+  }
+  public List<LightSource> lights {
+    get { return _lights; }
   }
   public Matrix4x4 voxelToWorld {
     get { return Matrix4x4.TRS(origin, Quaternion.identity, Vector3.one * voxelSize); }
@@ -77,8 +82,10 @@ public class VXGI : MonoBehaviour {
   float _previousTrace = 0f;
   Camera _camera;
   CommandBuffer _command;
+  ComputeBuffer _lightSources;
   ComputeBuffer _radianceBuffer;
   ComputeBuffer _voxelBuffer;
+  List<LightSource> _lights;
   Mipmapper _mipmapper;
   Parameterizer _parameterizer;
   RenderTexture[] _radiances;
@@ -130,6 +137,8 @@ public class VXGI : MonoBehaviour {
       SetupShader(renderContext);
       renderer.RenderDeferred(renderContext, camera, this);
     }
+
+    _lights.Clear();
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -149,22 +158,10 @@ public class VXGI : MonoBehaviour {
   }
 
   void SetupShader(ScriptableRenderContext renderContext) {
-    if ((sun != null) && (sun.isActiveAndEnabled)) {
-      Debug.Assert(sun.type == LightType.Directional, "The sun is not directional.", sun);
+    _lightSources.SetData(_lights);
 
-      _command.EnableShaderKeyword("TRACE_SUN");
-      _command.SetGlobalColor("SunColor", sun.color * sun.intensity);
-      _command.SetGlobalVector("SunDirection", sun.transform.forward);
-    } else {
-      _command.DisableShaderKeyword("TRACE_SUN");
-    }
-
-    _command.SetGlobalInt("LightCount", _voxelizer.lightColors.Count);
-
-    if (_voxelizer.lightColors.Count > 0) {
-      _command.SetGlobalVectorArray("LightColors", _voxelizer.lightColors);
-      _command.SetGlobalVectorArray("LightPositions", _voxelizer.lightPositions);
-    }
+    _command.SetGlobalInt("LightCount", _lights.Count);
+    _command.SetGlobalBuffer("LightSources", _lightSources);
 
     _command.SetGlobalInt("Resolution", _resolution);
     _command.SetGlobalMatrix("WorldToVoxel", worldToVoxel);
@@ -184,6 +181,8 @@ public class VXGI : MonoBehaviour {
 
     _camera = GetComponent<Camera>();
     _command = new CommandBuffer { name = "VXGI" };
+    _lights = new List<LightSource>(64);
+    _lightSources = new ComputeBuffer(64, LightSource.size);
     _mipmapper = new Mipmapper(this);
     _parameterizer = new Parameterizer();
     _voxelizer = new Voxelizer(this);
@@ -203,6 +202,7 @@ public class VXGI : MonoBehaviour {
     _voxelizer.Dispose();
     _parameterizer.Dispose();
     _mipmapper.Dispose();
+    _lightSources.Dispose();
     _command.Dispose();
   }
   #endregion

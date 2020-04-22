@@ -32,8 +32,6 @@ public class VXGIRenderPipeline : RenderPipeline {
     if (asset.environmentReflections) _rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
 
     Shader.globalRenderPipeline = "VXGI";
-    Shader.SetGlobalVectorArray("LightColors", new Vector4[64]);
-    Shader.SetGlobalVectorArray("LightPositions", new Vector4[64]);
 
     GraphicsSettings.lightsUseLinearIntensity = true;
     GraphicsSettings.useScriptableRenderPipelineBatching = asset.SRPBatching;

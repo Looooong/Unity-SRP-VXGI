@@ -3,6 +3,7 @@
     "references": [
         "Unity.Postprocessing.Runtime",
         "Looooong.SRP.VXGI.Runtime.ShaderPasses",
+        "Looooong.SRP.VXGI.Runtime.ShaderStructs",
         "Looooong.SRP.VXGI.Runtime.Utilities"
     ],
     "optionalUnityReferences": [],
