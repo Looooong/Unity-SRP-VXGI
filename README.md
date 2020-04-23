@@ -3,7 +3,8 @@
 ## Showcase
 
 - [Tutorial](https://youtu.be/nACG_mtSUDo)
-- [Demo](https://youtu.be/cOHHuDeXhgw)
+- [Lighting Demo](https://youtu.be/thsw3c0SDIw)
+- [The Room Demo](https://youtu.be/cOHHuDeXhgw)
 - [Example project (legacy branch)](https://github.com/Looooong/Unity-SRP-VXGI/tree/legacy)
 
 <p align="center">
