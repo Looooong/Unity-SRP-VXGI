@@ -48,7 +48,7 @@ public class Voxelizer : System.IDisposable {
 
     foreach (var light in _cullResults.visibleLights) {
       if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        _vxgi.lights.Add(new LightSource(light));
+        _vxgi.lights.Add(new LightSource(light, _vxgi.worldToVoxel));
       }
     }
 

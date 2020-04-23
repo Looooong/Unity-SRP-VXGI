@@ -7,47 +7,6 @@
   #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Sampler.cginc"
   #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelLightingData.hlsl"
 
-  void DirectVoxelRadianceDirectional(VoxelLightingData data, LightSource lightSource, inout float3 radiance) {
-    data.Prepare(-lightSource.direction);
-
-    if (data.NdotL <= 0.0) return;
-
-    float3 attenuation = data.NdotL * lightSource.color;
-
-    radiance += VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, data.voxelPosition + data.vecL * (Resolution << 1)) * attenuation;
-  }
-
-  void DirectVoxelRadiancePoint(VoxelLightingData data, LightSource lightSource, inout float3 radiance) {
-    float3 relativePosition = lightSource.position - data.worldPosition;
-    data.Prepare(normalize(relativePosition));
-
-    if (
-      (data.NdotL <= 0.0) ||
-      lightSource.NotInRange(relativePosition)
-    ) return;
-
-    float3 attenuation = data.NdotL * LightAttenuation(lightSource.color, relativePosition);
-
-    lightSource.position = mul(WorldToVoxel, float4(lightSource.position, 1.0)).xyz;
-    radiance += VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, lightSource.position) * attenuation;
-  }
-
-  void DirectVoxelRadianceSpot(VoxelLightingData data, LightSource lightSource, inout float3 radiance) {
-    float3 relativePosition = lightSource.position - data.worldPosition;
-    data.Prepare(normalize(relativePosition));
-
-    if (
-      (data.NdotL <= 0.0) ||
-      lightSource.NotInRange(relativePosition) ||
-      (acos(dot(-data.vecL, lightSource.direction)) > radians(.5 * lightSource.spotAngle))
-    ) return;
-
-    float3 attenuation = data.NdotL * LightAttenuation(lightSource.color, relativePosition);
-
-    lightSource.position = mul(WorldToVoxel, float4(lightSource.position, 1.0)).xyz;
-    radiance += VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, lightSource.position) * attenuation;
-  }
-
   float3 DirectVoxelRadiance(VoxelLightingData data)
   {
     float3 radiance = 0.0;
@@ -55,17 +14,24 @@
     for (uint i = 0; i < LightCount; i++) {
       LightSource lightSource = LightSources[i];
 
-      switch (lightSource.type) {
-        case LIGHT_SOURCE_TYPE_DIRECTIONAL:
-          DirectVoxelRadianceDirectional(data, lightSource, radiance);
-          break;
-        case LIGHT_SOURCE_TYPE_POINT:
-          DirectVoxelRadiancePoint(data, lightSource, radiance);
-          break;
-        case LIGHT_SOURCE_TYPE_SPOT:
-          DirectVoxelRadianceSpot(data, lightSource, radiance);
-          break;
+      bool notInRange;
+      float3 localPosition;
+
+      [branch]
+      if (lightSource.type == LIGHT_SOURCE_TYPE_DIRECTIONAL) {
+        localPosition = -lightSource.direction;
+        notInRange = false;
+        lightSource.voxelPosition = mad(localPosition, Resolution << 1, data.voxelPosition);
+      } else {
+        localPosition = lightSource.worldposition - data.worldPosition;
+        notInRange = lightSource.NotInRange(localPosition);
       }
+
+      data.Prepare(normalize(localPosition));
+
+      if ((data.NdotL <= 0.0) || notInRange || lightSource.NotInAngle(-data.vecL)) continue;
+
+      radiance += VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, lightSource.voxelPosition) * data.NdotL * lightSource.Attenuation(localPosition);
     }
 
     return radiance;

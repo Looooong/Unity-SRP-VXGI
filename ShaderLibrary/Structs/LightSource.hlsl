@@ -9,13 +9,23 @@
   {
     float3 color;
     float3 direction;
-    float3 position;
+    float3 voxelPosition;
+    float3 worldposition;
     float range;
-    float spotAngle;
+    float spotCos;
     uint type;
 
-    bool NotInRange(float3 position) {
-      return dot(position, position) > range * range;
+    float3 Attenuation(float3 otherPosition)
+    {
+      return color / max(0.01, dot(otherPosition, otherPosition));
+    }
+
+    bool NotInAngle(float3 otherDirection) {
+      return dot(otherDirection, direction) < spotCos;
+    }
+
+    bool NotInRange(float3 otherPosition) {
+      return dot(otherPosition, otherPosition) > range * range;
     }
   };
 #endif

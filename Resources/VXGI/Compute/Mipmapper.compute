@@ -28,7 +28,6 @@ void CSFilter(int3 id : SV_DispatchThreadID)
       [unroll]
       for (int k = -1; k < 2; k++) {
         color += Weights[abs(i) + abs(j) + abs(k)] * Src[2 * id + int3(i, j, k)];
-        GroupMemoryBarrierWithGroupSync();
       }
     }
   }
@@ -53,6 +52,4 @@ void CSShift(int3 id : SV_DispatchThreadID)
   id.z = Displacement.z < 0 ? DstRes - 1 - id.z : id.z;
 
   Dst[id] = Dst[id + Displacement];
-
-  GroupMemoryBarrierWithGroupSync();
 }
