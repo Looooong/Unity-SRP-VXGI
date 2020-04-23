@@ -14,6 +14,10 @@ public class VXGIRenderPipelineAsset : RenderPipelineAsset {
     return (Material)Resources.Load("VXGI/Material/Default");
   }
 
+  public override Material GetDefaultParticleMaterial() {
+    return (Material)Resources.Load("VXGI/Material/Default-Particle");
+  }
+
   public override Shader GetDefaultShader() {
     return Shader.Find("VXGI/Standard");
   }
