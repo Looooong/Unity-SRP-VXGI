@@ -19,8 +19,6 @@ void CSAverage(uint3 id : SV_DispatchThreadID)
   RadianceData d;
   d.Load(RadianceBuffer, id);
 
-  GroupMemoryBarrierWithGroupSync();
-
   if (d.count > 0) {
     Target[id] = d.color / d.count;
 
@@ -39,14 +37,14 @@ void CSRender(uint id : SV_DispatchThreadID)
 {
   VoxelData data = VoxelBuffer.Consume();
 
+  DeviceMemoryBarrierWithGroupSync();
+
   if (!data.IsValid()) return;
 
   float3 position = data.GetPosition();
   float3 normal = data.GetNormal();
   float4 color = data.GetColor();
   float3 emission = data.GetEmission();
-
-  GroupMemoryBarrierWithGroupSync();
 
   VoxelLightingData lightingData;
   lightingData.color = color.rgb;
@@ -58,8 +56,6 @@ void CSRender(uint id : SV_DispatchThreadID)
   d.color.rgb = emission + VoxelRadiance(lightingData);
   d.color.a = saturate(color.a);
   d.count = 1;
-
-  GroupMemoryBarrierWithGroupSync();
 
   d.InterlockedAdd(RadianceBuffer, data.GetPosition());
 }

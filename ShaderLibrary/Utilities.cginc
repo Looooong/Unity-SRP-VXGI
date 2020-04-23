@@ -1,11 +1,6 @@
 #ifndef VXGI_UTILITIES
   #define VXGI_UTILITIES
 
-  float3 LightAttenuation(float3 color, float3 position)
-  {
-    return color / max(0.01, dot(position, position));
-  }
-
   float Pow5(float x)
   {
     float x2 = x * x;
