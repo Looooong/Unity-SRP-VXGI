@@ -30,4 +30,5 @@
 
 ### Fixed
 
+- Fix light source injection.
 - Fix inverted `GrabCopy` pass.
