@@ -56,7 +56,7 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   RadianceData d;
   d.color.rgb = emission + VoxelRadiance(lightingData);
-  d.color.a = 1.0;
+  d.color.a = saturate(color.a);
   d.count = 1;
 
   GroupMemoryBarrierWithGroupSync();

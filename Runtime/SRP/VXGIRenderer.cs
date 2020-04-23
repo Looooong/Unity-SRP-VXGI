@@ -35,7 +35,7 @@ public class VXGIRenderer : System.IDisposable {
 
   public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
     _command = new CommandBuffer { name = "VXGIRenderer" };
-    _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
+    _filterSettings = new FilterRenderersSettings(true);
     _renderPipeline = renderPipeline;
 
     _cameraDepthTextureID = Shader.PropertyToID("_CameraDepthTexture");
@@ -98,6 +98,8 @@ public class VXGIRenderer : System.IDisposable {
     drawSettings.rendererConfiguration = _renderPipeline.rendererConfiguration;
     drawSettings.sorting.flags = SortFlags.CommonOpaque;
 
+    _filterSettings.renderQueueRange = RenderQueueRange.opaque;
+
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
 
     if (camera.cameraType != CameraType.SceneView) {
@@ -136,6 +138,17 @@ public class VXGIRenderer : System.IDisposable {
     for (int i = 0; i < _lightingPasses.Length; i++) {
       _lightingPasses[i].Execute(renderContext, camera, _frameBufferID, _renderScale[i]);
     }
+
+    _command.SetRenderTarget(_frameBufferID);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+
+    drawSettings.SetShaderPassName(0, new ShaderPassName("ForwardBase"));
+    drawSettings.sorting.flags = SortFlags.CommonTransparent;
+
+    _filterSettings.renderQueueRange = RenderQueueRange.transparent;
+
+    renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
 
     RenderPostProcessing(renderContext, camera);
 

@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add `VXGI/Particles/Standard Unlit` shader.
 - Add CHANGELOG.
 - Complete the light injections.
   - Add support for spot light.
