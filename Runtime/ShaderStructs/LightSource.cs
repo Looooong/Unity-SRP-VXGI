@@ -12,8 +12,8 @@ public struct LightSource {
 
   public LightSource(UnityEngine.Experimental.Rendering.VisibleLight light) {
     color = (Vector4)light.finalColor;
-    position = light.localToWorld * Vector3.zero;
-    direction = (Vector3)(light.localToWorld * Vector3.forward) - position;
+    position = light.localToWorld * new Vector4(0f, 0f, 0f, 1f);
+    direction = (Vector3)(light.localToWorld * new Vector4(0f, 0f, 1f, 1f)) - position;
     range = light.range;
     spotAngle = light.spotAngle;
     type = (uint)light.lightType;
