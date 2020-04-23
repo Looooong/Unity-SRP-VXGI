@@ -153,11 +153,11 @@ Shader "Hidden/VXGI/Voxelization"
 
         i.normal = normalize(i.normal);
 
-#ifdef _EMISSION
-        float3 emission = _EmissionColor * tex2Dlod(_EmissionMap, float4(i.uv, 0.0, 0.0));
-#else
-        float3 emission = 0.0;
-#endif
+        #ifdef _EMISSION
+          float3 emission = _EmissionColor * tex2Dlod(_EmissionMap, float4(i.uv, 0.0, 0.0));
+        #else
+          float3 emission = 0.0;
+        #endif
 
         VoxelData d;
         d.Initialize();
