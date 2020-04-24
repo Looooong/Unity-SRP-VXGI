@@ -38,9 +38,6 @@ public class VXGI : MonoBehaviour {
   public int volume {
     get { return _resolution * _resolution * _resolution; }
   }
-  public ComputeBuffer radianceBuffer {
-    get { return _radianceBuffer; }
-  }
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
   }
@@ -83,7 +80,6 @@ public class VXGI : MonoBehaviour {
   Camera _camera;
   CommandBuffer _command;
   ComputeBuffer _lightSources;
-  ComputeBuffer _radianceBuffer;
   ComputeBuffer _voxelBuffer;
   List<LightSource> _lights;
   Mipmapper _mipmapper;
@@ -209,12 +205,10 @@ public class VXGI : MonoBehaviour {
 
   #region Buffers
   void CreateBuffers() {
-    _radianceBuffer = new ComputeBuffer(5 * volume, 4, ComputeBufferType.Raw);
     _voxelBuffer = new ComputeBuffer((int)(bufferScale * volume), VoxelData.size, ComputeBufferType.Append);
   }
 
   void DisposeBuffers() {
-    _radianceBuffer.Dispose();
     _voxelBuffer.Dispose();
   }
 
@@ -256,6 +250,7 @@ public class VXGI : MonoBehaviour {
     foreach (var radiance in _radiances) {
       radiance.DiscardContents();
       radiance.Release();
+      DestroyImmediate(radiance);
     }
   }
 
