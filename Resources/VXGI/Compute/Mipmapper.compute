@@ -14,7 +14,7 @@ static float Weights[4] = {
   R_64
 };
 
-[numthreads(8,8,8)]
+[numthreads(4,4,4)]
 void CSFilter(int3 id : SV_DispatchThreadID)
 {
   if (any(id >= DstRes)) return;
@@ -42,7 +42,7 @@ void CSFilter(int3 id : SV_DispatchThreadID)
 
 int3 Displacement;
 
-[numthreads(8,8,8)]
+[numthreads(4,4,4)]
 void CSShift(int3 id : SV_DispatchThreadID)
 {
   if (any(id >= DstRes)) return;

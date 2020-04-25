@@ -20,7 +20,7 @@ public class VXGIRenderPipeline : RenderPipeline {
 
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
     _renderer = new VXGIRenderer(this);
-    _command = new CommandBuffer() { name = "VXGIRenderPipeline" };
+    _command = new CommandBuffer() { name = "VXGI.RenderPipeline" };
     _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
 
     _drawRendererFlags = DrawRendererFlags.None;
@@ -50,6 +50,8 @@ public class VXGIRenderPipeline : RenderPipeline {
     BeginFrameRendering(cameras);
 
     foreach (var camera in cameras) {
+      string cameraSample = "Render.Camera." + camera.cameraType.ToString();
+
       var layer = camera.GetComponent<PostProcessLayer>();
 
       if (layer != null && layer.isActiveAndEnabled) {
@@ -65,10 +67,10 @@ public class VXGIRenderPipeline : RenderPipeline {
       if (vxgi != null && vxgi.isActiveAndEnabled) {
         vxgi.Render(renderContext, _renderer);
       } else {
-#if UNITY_EDITOR
         bool rendered = false;
 
-        if (camera.cameraType == UnityEngine.CameraType.SceneView) {
+#if UNITY_EDITOR
+        if (camera.cameraType == CameraType.SceneView) {
           ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
         }
 
@@ -80,15 +82,13 @@ public class VXGIRenderPipeline : RenderPipeline {
             rendered = true;
           }
         }
+#endif
 
         if (!rendered) RenderFallback(renderContext, camera);
-#else
-        RenderFallback(renderContext, camera);
-#endif
       }
-
-      renderContext.Submit();
     }
+
+    renderContext.Submit();
   }
 
   void RenderFallback(ScriptableRenderContext renderContext, Camera camera) {
