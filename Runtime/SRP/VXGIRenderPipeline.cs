@@ -50,8 +50,6 @@ public class VXGIRenderPipeline : RenderPipeline {
     BeginFrameRendering(cameras);
 
     foreach (var camera in cameras) {
-      string cameraSample = "Render.Camera." + camera.cameraType.ToString();
-
       var layer = camera.GetComponent<PostProcessLayer>();
 
       if (layer != null && layer.isActiveAndEnabled) {

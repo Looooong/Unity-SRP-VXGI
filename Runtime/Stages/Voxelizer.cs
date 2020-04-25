@@ -46,6 +46,8 @@ public class Voxelizer : System.IDisposable {
     if (!CullResults.GetCullingParameters(_camera, out cullingParams)) return;
     CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
 
+    _vxgi.lights.Clear();
+
     foreach (var light in _cullResults.visibleLights) {
       if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
         _vxgi.lights.Add(new LightSource(light, _vxgi.worldToVoxel));

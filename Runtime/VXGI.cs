@@ -134,8 +134,6 @@ public class VXGI : MonoBehaviour {
       renderer.RenderDeferred(renderContext, camera, this);
     }
 
-    _lights.Clear();
-
     _command.EndSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
