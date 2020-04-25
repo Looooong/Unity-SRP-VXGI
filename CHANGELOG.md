@@ -32,5 +32,6 @@
 
 ### Fixed
 
+- Fix light injection when throttling cone tracing.
 - Fix light source injection.
 - Fix inverted `GrabCopy` pass.
