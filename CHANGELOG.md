@@ -20,6 +20,7 @@
 
 ### Changed
 
+- Refactor profile sampling.
 - Optimize and refactor `VoxelShader`.
 - Update README.
 - Switch to built-in G-Buffer generator.

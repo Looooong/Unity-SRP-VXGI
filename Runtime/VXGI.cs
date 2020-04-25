@@ -96,14 +96,14 @@ public class VXGI : MonoBehaviour {
   }
 
   public void Render(ScriptableRenderContext renderContext, Camera camera, VXGIRenderer renderer) {
+    _command.BeginSample(_command.name);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+
     UpdateResolution();
 
     float realtime = Time.realtimeSinceStartup;
     bool tracingThrottled = throttleTracing;
-
-#if UNITY_EDITOR
-    tracingThrottled &= UnityEditor.EditorApplication.isPlaying;
-#endif
 
     if (tracingThrottled) {
       if (_previousTrace + 1f / tracingRate < realtime) {
@@ -135,6 +135,11 @@ public class VXGI : MonoBehaviour {
     }
 
     _lights.Clear();
+
+    _command.EndSample(_command.name);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -176,7 +181,7 @@ public class VXGI : MonoBehaviour {
     _resolution = (int)resolution;
 
     _camera = GetComponent<Camera>();
-    _command = new CommandBuffer { name = "VXGI" };
+    _command = new CommandBuffer { name = "VXGI.MonoBehaviour" };
     _lights = new List<LightSource>(64);
     _lightSources = new ComputeBuffer(64, LightSource.size);
     _mipmapper = new Mipmapper(this);

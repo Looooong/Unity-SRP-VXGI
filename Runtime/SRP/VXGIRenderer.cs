@@ -16,6 +16,12 @@ public class VXGIRenderer : System.IDisposable {
     get { return _renderPipeline.rendererConfiguration; }
   }
 
+  const string _samplePostProcessRender = "PostProcess.Render";
+  const string _samplePostProcessRenderOpaque = "PostProcess.RenderOpaque";
+  const string _sampleRenderGBufferAfter = "Render.GBuffer.After";
+  const string _sampleRenderLighting = "Render.Lighting";
+  const string _sampleRenderMipmap = "Render.Mipmap";
+
   int _cameraDepthTextureID;
   int _cameraDepthNormalsTextureID;
   int _cameraGBufferTexture0ID;
@@ -34,7 +40,7 @@ public class VXGIRenderer : System.IDisposable {
   VXGIRenderPipeline _renderPipeline;
 
   public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
-    _command = new CommandBuffer { name = "VXGIRenderer" };
+    _command = new CommandBuffer { name = "VXGI.Renderer" };
     _filterSettings = new FilterRenderersSettings(true);
     _renderPipeline = renderPipeline;
 
@@ -68,14 +74,16 @@ public class VXGIRenderer : System.IDisposable {
 
   public void Dispose() {
     _command.Dispose();
-
-    foreach (var pass in _lightingPasses) pass.Dispose();
   }
 
   public void RenderDeferred(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
     ScriptableCullingParameters cullingParams;
     if (!CullResults.GetCullingParameters(camera, out cullingParams)) return;
     CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
+
+    _command.BeginSample(_command.name);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
 
     renderContext.SetupCameraProperties(camera);
 
@@ -102,6 +110,8 @@ public class VXGIRenderer : System.IDisposable {
 
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
 
+    _command.BeginSample(_sampleRenderGBufferAfter);
+
     if (camera.cameraType != CameraType.SceneView) {
       _command.EnableShaderKeyword("PROJECTION_PARAMS_X");
     } else {
@@ -113,8 +123,6 @@ public class VXGIRenderer : System.IDisposable {
     _command.Blit(BuiltinRenderTextureType.CameraTarget, _dummyID);
     _command.Blit(_dummyID, _frameBufferID, UtilityShader.material, (int)UtilityShader.Pass.GrabCopy);
     _command.ReleaseTemporaryRT(_dummyID);
-    renderContext.ExecuteCommandBuffer(_command);
-    _command.Clear();
 
     Matrix4x4 clipToWorld = camera.cameraToWorldMatrix * GL.GetGPUProjectionMatrix(camera.projectionMatrix, false).inverse;
 
@@ -130,15 +138,17 @@ public class VXGIRenderer : System.IDisposable {
       _command.Blit(_cameraDepthTextureID, _cameraDepthNormalsTextureID, UtilityShader.material, (int)UtilityShader.Pass.EncodeDepthNormal);
     }
 
-    renderContext.ExecuteCommandBuffer(_command);
-    _command.Clear();
+    _command.EndSample(_sampleRenderGBufferAfter);
+
+    _command.BeginSample(_sampleRenderLighting);
 
     _renderScale[2] = vxgi.diffuseResolutionScale;
 
     for (int i = 0; i < _lightingPasses.Length; i++) {
-      _lightingPasses[i].Execute(renderContext, camera, _frameBufferID, _renderScale[i]);
+      _lightingPasses[i].Execute(_command, camera, _frameBufferID, _renderScale[i]);
     }
 
+    _command.EndSample(_sampleRenderLighting);
     _command.SetRenderTarget(_frameBufferID);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
@@ -166,6 +176,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.ReleaseTemporaryRT(_cameraGBufferTexture2ID);
     _command.ReleaseTemporaryRT(_cameraGBufferTexture3ID);
     _command.ReleaseTemporaryRT(_frameBufferID);
+    _command.EndSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
@@ -173,7 +184,7 @@ public class VXGIRenderer : System.IDisposable {
   public void RenderMipmap(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
     var transform = Matrix4x4.TRS(vxgi.origin, Quaternion.identity, Vector3.one * vxgi.bound);
 
-    _command.BeginSample(_command.name);
+    _command.BeginSample(_sampleRenderMipmap);
 
     if (vxgi.mipmapSampler == MipmapSampler.Point) {
       _command.EnableShaderKeyword("RADIANCE_POINT_SAMPLER");
@@ -185,7 +196,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.SetGlobalFloat("TracingStep", vxgi.step);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
 
-    _command.EndSample(_command.name);
+    _command.EndSample(_sampleRenderMipmap);
 
     renderContext.ExecuteCommandBuffer(_command);
 
@@ -207,12 +218,16 @@ public class VXGIRenderer : System.IDisposable {
     _postProcessRenderContext.sourceFormat = RenderTextureFormat.ARGBHalf;
 
     if (layer.HasOpaqueOnlyEffects(_postProcessRenderContext)) {
+      _command.BeginSample(_samplePostProcessRenderOpaque);
       _command.Blit(_frameBufferID, _dummyID);
       layer.RenderOpaqueOnly(_postProcessRenderContext);
+      _command.EndSample(_samplePostProcessRenderOpaque);
     }
 
+    _command.BeginSample(_samplePostProcessRender);
     _command.Blit(_frameBufferID, _dummyID);
     layer.Render(_postProcessRenderContext);
+    _command.EndSample(_samplePostProcessRender);
 
     _command.ReleaseTemporaryRT(_dummyID);
     renderContext.ExecuteCommandBuffer(_command);

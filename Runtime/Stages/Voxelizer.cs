@@ -20,7 +20,7 @@ public class Voxelizer : System.IDisposable {
   public Voxelizer(VXGI vxgi) {
     _vxgi = vxgi;
 
-    _command = new CommandBuffer { name = "Voxelizer" };
+    _command = new CommandBuffer { name = "VXGI.Voxelizer" };
     _rect = new Rect(0f, 0f, 1f, 1f);
 
     _propDummyTarget = Shader.PropertyToID("DummyTarget");
