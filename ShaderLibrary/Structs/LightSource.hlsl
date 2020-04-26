@@ -13,6 +13,7 @@
     float3 worldposition;
     float range;
     float spotCos;
+    float spotFactor;
     uint type;
 
     float3 Attenuation(float3 otherPosition)
@@ -20,12 +21,12 @@
       return color / max(0.01, dot(otherPosition, otherPosition));
     }
 
-    bool NotInAngle(float3 otherDirection) {
-      return dot(otherDirection, direction) < spotCos;
-    }
-
     bool NotInRange(float3 otherPosition) {
       return dot(otherPosition, otherPosition) > range * range;
+    }
+
+    float SpotFalloff(float3 otherDirection) {
+      return type == LIGHT_SOURCE_TYPE_SPOT ? min(1.0, spotFactor * (dot(otherDirection, direction) - spotCos)) : 1.0;
     }
   };
 #endif

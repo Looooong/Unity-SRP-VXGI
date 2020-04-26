@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add angle-based falloff for spot light.
 - Add `VXGI/Particles/Standard Unlit` shader.
 - Add CHANGELOG.
 - Complete the light injections.
