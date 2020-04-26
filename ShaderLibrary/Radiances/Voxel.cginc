@@ -29,9 +29,15 @@
 
       data.Prepare(normalize(localPosition));
 
-      if ((data.NdotL <= 0.0) || notInRange || lightSource.NotInAngle(-data.vecL)) continue;
+      float spotFalloff = lightSource.SpotFalloff(-data.vecL);
 
-      radiance += VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, lightSource.voxelPosition) * data.NdotL * lightSource.Attenuation(localPosition);
+      if (notInRange || (spotFalloff <= 0.0) || (data.NdotL <= 0.0)) continue;
+
+      radiance +=
+        VoxelVisibility(data.voxelPosition + data.vecL / data.NdotL, lightSource.voxelPosition)
+        * data.NdotL
+        * spotFalloff
+        * lightSource.Attenuation(localPosition);
     }
 
     return radiance;
