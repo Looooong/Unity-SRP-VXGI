@@ -22,8 +22,8 @@ public class VoxelShader : System.IDisposable {
   int _kernelRender;
   int _propLightCount;
   int _propLightSources;
-  int _propRadianceColorBA;
-  int _propRadianceColorRG;
+  int _propRadianceBA;
+  int _propRadianceRG;
   int _propRadianceCount;
   int _propResolution;
   int _propTarget;
@@ -47,19 +47,14 @@ public class VoxelShader : System.IDisposable {
     _arguments.SetData(new int[] { 1, 1, 1 });
     _lightSources = new ComputeBuffer(64, LightSource.size);
 
-    if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer) {
-      _kernelAggregate = 1;
-    } else {
-      _kernelAggregate = 0;
-    }
-
+    _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 0 : 1;
     _kernelClear = compute.FindKernel("CSClear");
     _kernelRender = compute.FindKernel("CSRender");
 
     _propLightCount = Shader.PropertyToID("LightCount");
     _propLightSources = Shader.PropertyToID("LightSources");
-    _propRadianceColorBA = Shader.PropertyToID("RadianceColorBA");
-    _propRadianceColorRG = Shader.PropertyToID("RadianceColorRG");
+    _propRadianceBA = Shader.PropertyToID("RadianceBA");
+    _propRadianceRG = Shader.PropertyToID("RadianceRG");
     _propRadianceCount = Shader.PropertyToID("RadianceCount");
     _propResolution = Shader.PropertyToID("Resolution");
     _propTarget = Shader.PropertyToID("Target");
@@ -99,8 +94,8 @@ public class VoxelShader : System.IDisposable {
   {
     _command.BeginSample(sampleCleanup);
 
-    _command.ReleaseTemporaryRT(_propRadianceColorBA);
-    _command.ReleaseTemporaryRT(_propRadianceColorRG);
+    _command.ReleaseTemporaryRT(_propRadianceBA);
+    _command.ReleaseTemporaryRT(_propRadianceRG);
     _command.ReleaseTemporaryRT(_propRadianceCount);
 
     _command.EndSample(sampleCleanup);
@@ -109,8 +104,8 @@ public class VoxelShader : System.IDisposable {
   void ComputeAggregate() {
     _command.BeginSample(sampleComputeAggregate);
 
-    _command.SetComputeTextureParam(compute, _kernelAggregate, _propRadianceColorBA, _propRadianceColorBA);
-    _command.SetComputeTextureParam(compute, _kernelAggregate, _propRadianceColorRG, _propRadianceColorRG);
+    _command.SetComputeTextureParam(compute, _kernelAggregate, _propRadianceBA, _propRadianceBA);
+    _command.SetComputeTextureParam(compute, _kernelAggregate, _propRadianceRG, _propRadianceRG);
     _command.SetComputeTextureParam(compute, _kernelAggregate, _propRadianceCount, _propRadianceCount);
     _command.SetComputeTextureParam(compute, _kernelAggregate, _propTarget, _vxgi.radiances[0]);
     _command.DispatchCompute(compute, _kernelAggregate,
@@ -125,8 +120,8 @@ public class VoxelShader : System.IDisposable {
   void ComputeClear() {
     _command.BeginSample(sampleComputeClear);
 
-    _command.SetComputeTextureParam(compute, _kernelClear, _propRadianceColorBA, _propRadianceColorBA);
-    _command.SetComputeTextureParam(compute, _kernelClear, _propRadianceColorRG, _propRadianceColorRG);
+    _command.SetComputeTextureParam(compute, _kernelClear, _propRadianceBA, _propRadianceBA);
+    _command.SetComputeTextureParam(compute, _kernelClear, _propRadianceRG, _propRadianceRG);
     _command.SetComputeTextureParam(compute, _kernelClear, _propRadianceCount, _propRadianceCount);
     _command.DispatchCompute(compute, _kernelClear,
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.x),
@@ -148,8 +143,8 @@ public class VoxelShader : System.IDisposable {
     _command.SetComputeBufferParam(compute, _kernelRender, _propVoxelBuffer, _vxgi.voxelBuffer);
     _command.SetComputeMatrixParam(compute, "VoxelToWorld", _vxgi.voxelToWorld);
     _command.SetComputeMatrixParam(compute, "WorldToVoxel", _vxgi.worldToVoxel);
-    _command.SetComputeTextureParam(compute, _kernelRender, _propRadianceColorBA, _propRadianceColorBA);
-    _command.SetComputeTextureParam(compute, _kernelRender, _propRadianceColorRG, _propRadianceColorRG);
+    _command.SetComputeTextureParam(compute, _kernelRender, _propRadianceBA, _propRadianceBA);
+    _command.SetComputeTextureParam(compute, _kernelRender, _propRadianceRG, _propRadianceRG);
     _command.SetComputeTextureParam(compute, _kernelRender, _propRadianceCount, _propRadianceCount);
 
     for (var i = 0; i < 9; i++) {
@@ -170,8 +165,8 @@ public class VoxelShader : System.IDisposable {
     UpdateNumThreads();
     _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (int)_vxgi.resolution;
     _command.GetTemporaryRT(_propRadianceCount, _descriptor);
-    _command.GetTemporaryRT(_propRadianceColorBA, _descriptor);
-    _command.GetTemporaryRT(_propRadianceColorRG, _descriptor);
+    _command.GetTemporaryRT(_propRadianceBA, _descriptor);
+    _command.GetTemporaryRT(_propRadianceRG, _descriptor);
 
     _command.EndSample(sampleSetup);
   }

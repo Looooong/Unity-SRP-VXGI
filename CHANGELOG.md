@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add `resolutionPlusOne` to `VXGI` script.
+  - When `true`, voxel resolution will be **2<sup>n</sup>+1**. Mipmap filter will use 3x3x3 Gaussian Kernel (faster).
+  - When `false`, voxel resolution will be **2<sup>n</sup>**. Mipmap filter will use 4x4x4 Gaussian Kernel (slower).
 - Add angle-based falloff for spot light.
 - Add `VXGI/Particles/Standard Unlit` shader.
 - Add CHANGELOG.
@@ -21,6 +24,7 @@
 
 ### Changed
 
+- Refactor and optimize mipmap filter to use `groupshared` memory in compute shader. This reduces as much as 40% in filter time.
 - Refactor profile sampling.
 - Optimize and refactor `VoxelShader`.
 - Update README.
@@ -33,6 +37,7 @@
 
 ### Fixed
 
+- Fix mipmap level visualization.
 - Fix light injection when throttling cone tracing.
 - Fix light source injection.
 - Fix inverted `GrabCopy` pass.

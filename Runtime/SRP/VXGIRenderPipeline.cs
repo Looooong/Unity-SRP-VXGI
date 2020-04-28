@@ -1,15 +1,27 @@
-﻿using UnityEngine;
+﻿using System.Collections.ObjectModel;
+using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
 
 public class VXGIRenderPipeline : RenderPipeline {
+  public static bool isD3D11Supported {
+    get { return _D3D11DeviceType.Contains(SystemInfo.graphicsDeviceType); }
+  }
+
   public DrawRendererFlags drawRendererFlags {
     get { return _drawRendererFlags; }
   }
   public RendererConfiguration rendererConfiguration {
     get { return _rendererConfiguration; }
   }
+
+  static readonly ReadOnlyCollection<GraphicsDeviceType> _D3D11DeviceType = new ReadOnlyCollection<GraphicsDeviceType>(new[] {
+    GraphicsDeviceType.Direct3D11,
+    GraphicsDeviceType.Direct3D12,
+    GraphicsDeviceType.XboxOne,
+    GraphicsDeviceType.XboxOneD3D12
+  });
 
   CommandBuffer _command;
   CullResults _cullResults;
