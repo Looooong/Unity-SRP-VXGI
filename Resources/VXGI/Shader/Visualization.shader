@@ -70,6 +70,7 @@ Shader "Hidden/VXGI/Visualization"
 
       float MipmapLevel;
       float TracingStep;
+      static float MipmapSize = MipmapLevel < 1.0 ? MipmapLevel : pow(2, MipmapLevel - 1.0);
 
       v2f vert(uint id : SV_VertexID)
       {
@@ -91,7 +92,7 @@ Shader "Hidden/VXGI/Visualization"
         half4 color = half4(0.0, 0.0, 0.0, 0.0);
 
         while ((view.z <= 2 * TracingStep) && (TextureSDF(coordinate) > -0.000001)) {
-          half4 sample = SampleRadiance(coordinate, MipmapLevel);
+          half4 sample = SampleRadiance(coordinate, MipmapSize);
           color = sample + color * (1 - sample.a);
           view += unit;
           coordinate = mul(transpose(UNITY_MATRIX_IT_MV), float4(view, 1.0));

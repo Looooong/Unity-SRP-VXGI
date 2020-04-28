@@ -22,6 +22,7 @@ public class Mipmapper {
   int _propSrc;
   CommandBuffer _command;
   ComputeShader _compute;
+  NumThreads _threadsFilter;
   VXGI _vxgi;
 
   public Mipmapper(VXGI vxgi) {
@@ -29,13 +30,14 @@ public class Mipmapper {
 
     _command = new CommandBuffer { name = "VXGI.Mipmapper" };
 
+    _kernelFilter = (int)_vxgi.resolution % 2 != 0 ? 0 : 2;
+    _kernelShift = compute.FindKernel("CSShift");
+
     if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer) {
-      _kernelFilter = 1;
-    } else {
-      _kernelFilter = 0;
+      _kernelFilter += 1;
     }
 
-    _kernelShift = compute.FindKernel("CSShift");
+    _threadsFilter = new NumThreads(_compute, _kernelFilter);
 
     _propDisplacement = Shader.PropertyToID("Displacement");
     _propDst = Shader.PropertyToID("Dst");
@@ -48,17 +50,22 @@ public class Mipmapper {
   }
 
   public void Filter(ScriptableRenderContext renderContext) {
+    UpdateKernelFilter();
+
     var radiances = _vxgi.radiances;
 
     for (var i = 1; i < radiances.Length; i++) {
       int resolution = radiances[i].volumeDepth;
-      int groups = Mathf.CeilToInt((float)resolution / 4f);
 
       _command.BeginSample(_sampleFilter + resolution.ToString());
       _command.SetComputeIntParam(compute, _propDstRes, resolution);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propDst, radiances[i]);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propSrc, radiances[i - 1]);
-      _command.DispatchCompute(compute, _kernelFilter, groups, groups, groups);
+      _command.DispatchCompute(compute, _kernelFilter,
+         Mathf.CeilToInt((float)resolution /_threadsFilter.x),
+         Mathf.CeilToInt((float)resolution /_threadsFilter.y),
+         Mathf.CeilToInt((float)resolution /_threadsFilter.z)
+      );
       _command.EndSample(_sampleFilter + resolution.ToString());
     }
 
@@ -79,5 +86,16 @@ public class Mipmapper {
     _command.Clear();
 
     Filter(renderContext);
+  }
+
+  [System.Diagnostics.Conditional("UNITY_EDITOR")]
+  void UpdateKernelFilter() {
+    _kernelFilter = (int)_vxgi.resolution % 2 != 0 ? 0 : 2;
+
+    if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer) {
+      _kernelFilter += 1;
+    }
+
+    _threadsFilter = new NumThreads(_compute, _kernelFilter);
   }
 }

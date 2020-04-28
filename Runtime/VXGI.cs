@@ -9,7 +9,7 @@ using UnityEngine.Experimental.Rendering;
 public class VXGI : MonoBehaviour {
   public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
-  public enum Resolution { Low = 33, Medium = 65, High = 129, VeryHigh = 257 }
+  public enum Resolution { Low = 33, Medium = 65, High = 129, VeryHigh = 257, NewLow = 32, NewMedium = 64, NewHigh = 128, NewVeryHigh = 256 }
 
   public Vector3 center;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
@@ -233,15 +233,18 @@ public class VXGI : MonoBehaviour {
   }
 
   void CreateTextures() {
-    int currentResolution = _resolution;
-    _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
+    int resolutionModifier = _resolution % 2;
 
-    _radiances = new RenderTexture[(int)Mathf.Log(_resolution - 1, 2)];
+    _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2)];
 
-    for (int i = 0; i < _radiances.Length; i++) {
+    for (
+      int i = 0, currentResolution = _resolution;
+      i < _radiances.Length;
+      i++, currentResolution = (currentResolution - resolutionModifier) / 2 + resolutionModifier
+    ) {
+      _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
       _radiances[i] = new RenderTexture(_radianceDescriptor);
       _radiances[i].Create();
-      _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution = (currentResolution - 1) / 2 + 1;
     }
 
     for (int i = 0; i < 9; i++) {

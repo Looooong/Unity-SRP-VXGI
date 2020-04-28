@@ -1,41 +1,154 @@
 ﻿#pragma kernel CSFilter
 #pragma kernel CSFilter PLATFORM_LINUX
+#pragma kernel CSFilterNew
+#pragma kernel CSFilterNew PLATFORM_LINUX
 #pragma kernel CSShift
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Constants.cginc"
 
 int DstRes;
-Texture3D<float4> Src;
-RWTexture3D<float4> Dst;
-static float Weights[4] = {
+Texture3D<half4> Src;
+RWTexture3D<half4> Dst;
+groupshared uint LocalSrcRG[6][6][6];
+groupshared uint LocalSrcBA[6][6][6];
+groupshared uint SharedSrcRG[10][10][10];
+groupshared uint SharedSrcBA[10][10][10];
+static float Weights[] = {
   R_8,
   R_16,
   R_32,
   R_64
 };
+static float KernelWeights[] = {
+  1.0 / 512.0,
+  3.0 / 512.0,
+  9.0 / 512.0,
+  27.0 / 512.0
+};
+static uint IndexMap[] = { 0, 1, 1, 0 };
 
 [numthreads(4,4,4)]
-void CSFilter(int3 id : SV_DispatchThreadID)
+void CSFilter(int3 id : SV_DispatchThreadID, int3 groupId : SV_GroupThreadId)
 {
+  int3 index;
+  int3 minIndex = 0 - (groupId == 0);
+  int3 maxIndex = 1 + (groupId == 3);
+
+  for (index.x = minIndex.x; index.x < maxIndex.x; index.x++) {
+    for (index.y = minIndex.y; index.y < maxIndex.y; index.y++) {
+      for (index.z = minIndex.z; index.z < maxIndex.z; index.z++) {
+        int3 localIndex = groupId + index + 1;
+        half4 data = Src[mad(2, id, index)];
+
+        LocalSrcRG[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.r) | (f32tof16(data.g) << 16u);
+        LocalSrcBA[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.b) | (f32tof16(data.a) << 16u);
+      }
+    }
+  }
+
+  GroupMemoryBarrierWithGroupSync();
+
   if (any(id >= DstRes)) return;
 
   half4 color = 0.0;
 
   [unroll]
-  for (int i = -1; i < 2; i++) {
+  for (index.x = -1; index.x < 2; index.x++) {
     [unroll]
-    for (int j = -1; j < 2; j++) {
+    for (index.y = -1; index.y < 2; index.y++) {
       [unroll]
-      for (int k = -1; k < 2; k++) {
-        color += Weights[abs(i) + abs(j) + abs(k)] * Src[2 * id + int3(i, j, k)];
+      for (index.z = -1; index.z < 2; index.z++) {
+        int3 localIndex = groupId + index + 1;
+        uint rg = LocalSrcRG[localIndex.x][localIndex.y][localIndex.z];
+        uint ba = LocalSrcBA[localIndex.x][localIndex.y][localIndex.z];
+
+        color += Weights[abs(index.x) + abs(index.y) + abs(index.z)] * half4(
+          f16tof32(rg),
+          f16tof32(rg >> 16u),
+          f16tof32(ba),
+          f16tof32(ba >> 16u)
+        );
       }
     }
   }
 
-  if (any(color)) Dst[id] = color * 2.0;
+  // [unroll]
+  // for (index.x = -1; index.x < 2; index.x++) {
+  //   [unroll]
+  //   for (index.y = -1; index.y < 2; index.y++) {
+  //     [unroll]
+  //     for (index.z = -1; index.z < 2; index.z++) {
+  //       color += Weights[abs(index.x) + abs(index.y) + abs(index.z)] * Src[mad(2, id, index)];
+  //     }
+  //   }
+  // }
+
 #ifdef PLATFORM_LINUX
-  else Dst[id] = 0.0;
+  Dst[id] = 1.5 * color;
 #else
+  if (any(color)) Dst[id] = 1.5 * color;
+  else if (any(Dst[id])) Dst[id] = 0.0;
+#endif
+}
+
+[numthreads(4,4,4)]
+void CSFilterNew(int3 id : SV_DispatchThreadID, uint3 groupId : SV_GroupThreadId)
+{
+  int3 index;
+  int3 minIndex = 0 - (groupId == 0);
+  int3 maxIndex = 2 + (groupId == 3);
+
+  for (index.x = minIndex.x; index.x < maxIndex.x; index.x++) {
+    for (index.y = minIndex.y; index.y < maxIndex.y; index.y++) {
+      for (index.z = minIndex.z; index.z < maxIndex.z; index.z++) {
+        uint3 localIndex = mad(2u, groupId, index + 1u);
+        half4 data = Src[mad(2, id, index)];
+
+        SharedSrcRG[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.r) | (f32tof16(data.g) << 16u);
+        SharedSrcBA[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.b) | (f32tof16(data.a) << 16u);
+      }
+    }
+  }
+
+  GroupMemoryBarrierWithGroupSync();
+
+  half4 color = 0.0;
+
+  [unroll]
+  for (index.x = 0; index.x < 4; index.x++) {
+    [unroll]
+    for (index.y = 0; index.y < 4; index.y++) {
+      [unroll]
+      for (index.z = 0; index.z < 4; index.z++) {
+        uint3 localIndex = mad(2u, groupId, index);
+        uint rg = SharedSrcRG[localIndex.x][localIndex.y][localIndex.z];
+        uint ba = SharedSrcBA[localIndex.x][localIndex.y][localIndex.z];
+
+        color += KernelWeights[IndexMap[index.x] + IndexMap[index.y] + IndexMap[index.z]] * half4(
+          f16tof32(rg),
+          f16tof32(rg >> 16u),
+          f16tof32(ba),
+          f16tof32(ba >> 16u)
+        );
+      }
+    }
+  }
+
+  // [unroll]
+  // for (index.x = 0; index.x < 4; index.x++) {
+  //   [unroll]
+  //   for (index.y = 0; index.y < 4; index.y++) {
+  //     [unroll]
+  //     for (index.z = 0; index.z < 4; index.z++) {
+  //       color += KernelWeights[IndexMap[index.x] + IndexMap[index.y] + IndexMap[index.z]] * Src[mad(2, id, index)];
+  //     }
+  //   }
+  // }
+
+#ifdef PLATFORM_LINUX
+  Dst[id] = 1.5 * color;
+#else
+  if (any(color)) Dst[id] = 1.5 * color;
   else if (any(Dst[id])) Dst[id] = 0.0;
 #endif
 }
@@ -45,8 +158,6 @@ int3 Displacement;
 [numthreads(4,4,4)]
 void CSShift(int3 id : SV_DispatchThreadID)
 {
-  if (any(id >= DstRes)) return;
-
   id.x = Displacement.x < 0 ? DstRes - 1 - id.x : id.x;
   id.y = Displacement.y < 0 ? DstRes - 1 - id.y : id.y;
   id.z = Displacement.z < 0 ? DstRes - 1 - id.z : id.z;
