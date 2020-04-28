@@ -1,166 +1,127 @@
-﻿#pragma kernel CSFilter
-#pragma kernel CSFilter PLATFORM_LINUX
-#pragma kernel CSFilterNew
-#pragma kernel CSFilterNew PLATFORM_LINUX
+﻿#pragma kernel CSFilter RESOLUTION_PLUS_ONE D3D11
+#pragma kernel CSFilter RESOLUTION_PLUS_ONE
+#pragma kernel CSFilter D3D11
+#pragma kernel CSFilter
 #pragma kernel CSShift
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Constants.cginc"
 
-int DstRes;
+#define FILTER_FACTOR 1.414214
+
+uint DstRes;
 Texture3D<half4> Src;
 RWTexture3D<half4> Dst;
-groupshared uint LocalSrcRG[6][6][6];
-groupshared uint LocalSrcBA[6][6][6];
+
+#if defined(RESOLUTION_PLUS_ONE)
+// Apply 3x3x3 Gaussian Kernel
+#define FILTER_INDEX_MODIFIER 0u
+groupshared uint SharedSrcRG[6][6][6];
+groupshared uint SharedSrcBA[6][6][6];
+static const uint KernelMap[] = { 0u, 1u, 0u };
+static const float KernelWeights[] = {
+  1.0 / 64.0,
+  2.0 / 64.0,
+  4.0 / 64.0,
+  8.0 / 64.0
+};
+#else
+// Apply 4x4x4 Gaussian Kernel
+#define FILTER_INDEX_MODIFIER 1u
 groupshared uint SharedSrcRG[10][10][10];
 groupshared uint SharedSrcBA[10][10][10];
-static float Weights[] = {
-  R_8,
-  R_16,
-  R_32,
-  R_64
-};
-static float KernelWeights[] = {
+static const uint KernelMap[] = { 0u, 1u, 1u, 0u };
+static const float KernelWeights[] = {
   1.0 / 512.0,
   3.0 / 512.0,
   9.0 / 512.0,
   27.0 / 512.0
 };
-static uint IndexMap[] = { 0, 1, 1, 0 };
+#endif
 
-[numthreads(4,4,4)]
-void CSFilter(int3 id : SV_DispatchThreadID, int3 groupId : SV_GroupThreadId)
-{
-  int3 index;
-  int3 minIndex = 0 - (groupId == 0);
-  int3 maxIndex = 1 + (groupId == 3);
-
-  for (index.x = minIndex.x; index.x < maxIndex.x; index.x++) {
-    for (index.y = minIndex.y; index.y < maxIndex.y; index.y++) {
-      for (index.z = minIndex.z; index.z < maxIndex.z; index.z++) {
-        int3 localIndex = groupId + index + 1;
-        half4 data = Src[mad(2, id, index)];
-
-        LocalSrcRG[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.r) | (f32tof16(data.g) << 16u);
-        LocalSrcBA[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.b) | (f32tof16(data.a) << 16u);
-      }
-    }
-  }
-
-  GroupMemoryBarrierWithGroupSync();
-
-  if (any(id >= DstRes)) return;
-
-  half4 color = 0.0;
-
-  [unroll]
-  for (index.x = -1; index.x < 2; index.x++) {
-    [unroll]
-    for (index.y = -1; index.y < 2; index.y++) {
-      [unroll]
-      for (index.z = -1; index.z < 2; index.z++) {
-        int3 localIndex = groupId + index + 1;
-        uint rg = LocalSrcRG[localIndex.x][localIndex.y][localIndex.z];
-        uint ba = LocalSrcBA[localIndex.x][localIndex.y][localIndex.z];
-
-        color += Weights[abs(index.x) + abs(index.y) + abs(index.z)] * half4(
-          f16tof32(rg),
-          f16tof32(rg >> 16u),
-          f16tof32(ba),
-          f16tof32(ba >> 16u)
-        );
-      }
-    }
-  }
-
-  // [unroll]
-  // for (index.x = -1; index.x < 2; index.x++) {
-  //   [unroll]
-  //   for (index.y = -1; index.y < 2; index.y++) {
-  //     [unroll]
-  //     for (index.z = -1; index.z < 2; index.z++) {
-  //       color += Weights[abs(index.x) + abs(index.y) + abs(index.z)] * Src[mad(2, id, index)];
-  //     }
-  //   }
-  // }
-
-#ifdef PLATFORM_LINUX
-  Dst[id] = 1.5 * color;
-#else
-  if (any(color)) Dst[id] = 1.5 * color;
+void FilterOutput(uint3 id, half4 color) {
+#ifdef D3D11
+  if (any(color)) Dst[id] = FILTER_FACTOR * color;
   else if (any(Dst[id])) Dst[id] = 0.0;
+#else
+  Dst[id] = FILTER_FACTOR * color;
 #endif
 }
 
+uint3 FilterSharedIndex(uint3 groupId, uint3 index) {
+  return mad(1u + FILTER_INDEX_MODIFIER, groupId, index);
+}
+
+float FilterWeight(uint3 index) {
+  return KernelWeights[KernelMap[index.x] + KernelMap[index.y] + KernelMap[index.z]];
+}
+
+half4 LoadColor(uint3 index) {
+  uint rg = SharedSrcRG[index.x][index.y][index.z];
+  uint ba = SharedSrcBA[index.x][index.y][index.z];
+
+  return half4(
+    f16tof32(rg),
+    f16tof32(rg >> 16u),
+    f16tof32(ba),
+    f16tof32(ba >> 16u)
+  );
+}
+
+void StoreColor(uint3 index, half4 color) {
+  SharedSrcRG[index.x][index.y][index.z] = f32tof16(color.r) | (f32tof16(color.g) << 16u);
+  SharedSrcBA[index.x][index.y][index.z] = f32tof16(color.b) | (f32tof16(color.a) << 16u);
+}
+
 [numthreads(4,4,4)]
-void CSFilterNew(int3 id : SV_DispatchThreadID, uint3 groupId : SV_GroupThreadId)
+void CSFilter(uint3 id : SV_DispatchThreadID, uint3 groupId : SV_GroupThreadId)
 {
-  int3 index;
-  int3 minIndex = 0 - (groupId == 0);
-  int3 maxIndex = 2 + (groupId == 3);
+  uint3 index;
+  uint3 minIndex = 1u - (groupId == 0u);
+  uint3 maxIndex = 1u + (groupId == 3u) + FILTER_INDEX_MODIFIER;
 
-  for (index.x = minIndex.x; index.x < maxIndex.x; index.x++) {
-    for (index.y = minIndex.y; index.y < maxIndex.y; index.y++) {
-      for (index.z = minIndex.z; index.z < maxIndex.z; index.z++) {
-        uint3 localIndex = mad(2u, groupId, index + 1u);
-        half4 data = Src[mad(2, id, index)];
-
-        SharedSrcRG[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.r) | (f32tof16(data.g) << 16u);
-        SharedSrcBA[localIndex.x][localIndex.y][localIndex.z] = f32tof16(data.b) | (f32tof16(data.a) << 16u);
+  [unroll]
+  for (index.x = minIndex.x; index.x <= maxIndex.x; index.x++) {
+    [unroll]
+    for (index.y = minIndex.y; index.y <= maxIndex.y; index.y++) {
+      [unroll]
+      for (index.z = minIndex.z; index.z <= maxIndex.z; index.z++) {
+        StoreColor(FilterSharedIndex(groupId, index), Src[int3(mad(2u, id, index)) - 1]);
       }
     }
   }
 
   GroupMemoryBarrierWithGroupSync();
 
-  half4 color = 0.0;
+#ifdef RESOLUTION_PLUS_ONE
+  if (any(id >= DstRes)) return;
+#endif
+
+  float4 color = 0.0;
 
   [unroll]
-  for (index.x = 0; index.x < 4; index.x++) {
+  for (index.x = 0u; index.x < 3u + FILTER_INDEX_MODIFIER; index.x++) {
     [unroll]
-    for (index.y = 0; index.y < 4; index.y++) {
+    for (index.y = 0u; index.y < 3u + FILTER_INDEX_MODIFIER; index.y++) {
       [unroll]
-      for (index.z = 0; index.z < 4; index.z++) {
-        uint3 localIndex = mad(2u, groupId, index);
-        uint rg = SharedSrcRG[localIndex.x][localIndex.y][localIndex.z];
-        uint ba = SharedSrcBA[localIndex.x][localIndex.y][localIndex.z];
-
-        color += KernelWeights[IndexMap[index.x] + IndexMap[index.y] + IndexMap[index.z]] * half4(
-          f16tof32(rg),
-          f16tof32(rg >> 16u),
-          f16tof32(ba),
-          f16tof32(ba >> 16u)
-        );
+      for (index.z = 0u; index.z < 3u + FILTER_INDEX_MODIFIER; index.z++) {
+        color += FilterWeight(index) * LoadColor(FilterSharedIndex(groupId, index));
       }
     }
   }
 
-  // [unroll]
-  // for (index.x = 0; index.x < 4; index.x++) {
-  //   [unroll]
-  //   for (index.y = 0; index.y < 4; index.y++) {
-  //     [unroll]
-  //     for (index.z = 0; index.z < 4; index.z++) {
-  //       color += KernelWeights[IndexMap[index.x] + IndexMap[index.y] + IndexMap[index.z]] * Src[mad(2, id, index)];
-  //     }
-  //   }
-  // }
-
-#ifdef PLATFORM_LINUX
-  Dst[id] = 1.5 * color;
-#else
-  if (any(color)) Dst[id] = 1.5 * color;
-  else if (any(Dst[id])) Dst[id] = 0.0;
-#endif
+  FilterOutput(id, color);
 }
 
 int3 Displacement;
 
 [numthreads(4,4,4)]
-void CSShift(int3 id : SV_DispatchThreadID)
+void CSShift(uint3 id : SV_DispatchThreadID)
 {
-  id.x = Displacement.x < 0 ? DstRes - 1 - id.x : id.x;
-  id.y = Displacement.y < 0 ? DstRes - 1 - id.y : id.y;
-  id.z = Displacement.z < 0 ? DstRes - 1 - id.z : id.z;
+  if (any(id >= DstRes)) return;
 
-  Dst[id] = Dst[id + Displacement];
+  id.x = Displacement.x < 0 ? DstRes - 1u - id.x : id.x;
+  id.y = Displacement.y < 0 ? DstRes - 1u - id.y : id.y;
+  id.z = Displacement.z < 0 ? DstRes - 1u - id.z : id.z;
+
+  Dst[id] = Dst[int3(id) + Displacement];
 }

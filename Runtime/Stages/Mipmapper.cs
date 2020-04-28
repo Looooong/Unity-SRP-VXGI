@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
@@ -23,6 +24,7 @@ public class Mipmapper {
   CommandBuffer _command;
   ComputeShader _compute;
   NumThreads _threadsFilter;
+  NumThreads _threadsShift;
   VXGI _vxgi;
 
   public Mipmapper(VXGI vxgi) {
@@ -30,14 +32,7 @@ public class Mipmapper {
 
     _command = new CommandBuffer { name = "VXGI.Mipmapper" };
 
-    _kernelFilter = (int)_vxgi.resolution % 2 != 0 ? 0 : 2;
-    _kernelShift = compute.FindKernel("CSShift");
-
-    if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer) {
-      _kernelFilter += 1;
-    }
-
-    _threadsFilter = new NumThreads(_compute, _kernelFilter);
+    InitializeKernel();
 
     _propDisplacement = Shader.PropertyToID("Displacement");
     _propDst = Shader.PropertyToID("Dst");
@@ -50,14 +45,14 @@ public class Mipmapper {
   }
 
   public void Filter(ScriptableRenderContext renderContext) {
-    UpdateKernelFilter();
+    UpdateKernel();
 
     var radiances = _vxgi.radiances;
 
     for (var i = 1; i < radiances.Length; i++) {
       int resolution = radiances[i].volumeDepth;
 
-      _command.BeginSample(_sampleFilter + resolution.ToString());
+      _command.BeginSample(_sampleFilter + resolution.ToString("D3"));
       _command.SetComputeIntParam(compute, _propDstRes, resolution);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propDst, radiances[i]);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propSrc, radiances[i - 1]);
@@ -66,7 +61,7 @@ public class Mipmapper {
          Mathf.CeilToInt((float)resolution /_threadsFilter.y),
          Mathf.CeilToInt((float)resolution /_threadsFilter.z)
       );
-      _command.EndSample(_sampleFilter + resolution.ToString());
+      _command.EndSample(_sampleFilter + resolution.ToString("D3"));
     }
 
     renderContext.ExecuteCommandBuffer(_command);
@@ -74,13 +69,17 @@ public class Mipmapper {
   }
 
   public void Shift(ScriptableRenderContext renderContext, Vector3Int displacement) {
-    int groups = Mathf.CeilToInt((float)_vxgi.resolution / 4f);
+    UpdateKernel();
 
     _command.BeginSample(_sampleShift);
     _command.SetComputeIntParam(compute, _propDstRes, (int)_vxgi.resolution);
     _command.SetComputeIntParams(compute, _propDisplacement, new[] { displacement.x, displacement.y, displacement.z });
     _command.SetComputeTextureParam(compute, _kernelShift, _propDst, _vxgi.radiances[0]);
-    _command.DispatchCompute(compute, _kernelShift, groups, groups, groups);
+    _command.DispatchCompute(compute, _kernelShift,
+      Mathf.CeilToInt((float)_vxgi.resolution / _threadsShift.x),
+      Mathf.CeilToInt((float)_vxgi.resolution / _threadsShift.y),
+      Mathf.CeilToInt((float)_vxgi.resolution / _threadsShift.z)
+    );
     _command.EndSample(_sampleShift);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
@@ -88,14 +87,24 @@ public class Mipmapper {
     Filter(renderContext);
   }
 
-  [System.Diagnostics.Conditional("UNITY_EDITOR")]
-  void UpdateKernelFilter() {
-    _kernelFilter = (int)_vxgi.resolution % 2 != 0 ? 0 : 2;
+  void InitializeKernel() {
+    if (_vxgi.resolutionPlusOne) {
+      _kernelFilter = 0;
+    } else {
+      _kernelFilter = 2;
+    }
 
-    if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer) {
+    if (!VXGIRenderPipeline.isD3D11Supported) {
       _kernelFilter += 1;
     }
 
-    _threadsFilter = new NumThreads(_compute, _kernelFilter);
+    _kernelShift = compute.FindKernel("CSShift");
+    _threadsFilter = new NumThreads(compute, _kernelFilter);
+    _threadsShift = new NumThreads(compute, _kernelShift);
+  }
+
+  [System.Diagnostics.Conditional("UNITY_EDITOR")]
+  void UpdateKernel() {
+    InitializeKernel();
   }
 }

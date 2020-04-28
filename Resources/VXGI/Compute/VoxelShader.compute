@@ -1,5 +1,5 @@
-﻿#pragma kernel CSAggregate
-#pragma kernel CSAggregate PLATFORM_LINUX
+﻿#pragma kernel CSAggregate D3D11
+#pragma kernel CSAggregate
 #pragma kernel CSClear
 #pragma kernel CSRender
 
@@ -9,8 +9,8 @@
 
 #define RADIANCE_PRECISION 256.0
 
-RWTexture3D<uint> RadianceColorBA;
-RWTexture3D<uint> RadianceColorRG;
+RWTexture3D<uint> RadianceRG;
+RWTexture3D<uint> RadianceBA;
 RWTexture3D<uint> RadianceCount;
 RWTexture3D<float4> Target;
 ConsumeStructuredBuffer<VoxelData> VoxelBuffer;
@@ -23,24 +23,27 @@ void CSAggregate(uint3 id : SV_DispatchThreadID)
   // FIXME
   // It looks stupid, due to a bug in HLSL to GLSL translator (case 1241093).
   // This is an only workaround I can think of.
-  uint rg = RadianceColorRG[id];
-  uint ba = RadianceColorBA.Load(id);
+  uint rg = RadianceRG[id];
+  uint ba = RadianceBA.Load(id);
   uint count = RadianceCount[id];
 
-  if (count > 0) {
+  if (count > 0u) {
     float4 color = uint4(
       rg & 0xffff,
-      rg >> 16,
+      rg >> 16u,
       ba & 0xffff,
-      ba >> 16
+      ba >> 16u
     ) / RADIANCE_PRECISION;
 
     Target[id] = color / count;
-#ifdef PLATFORM_LINUX
-  } else Target[id] = 0.0;
+  } else {
+#ifdef D3D11
+    // Write only when necessary
+    if (any(Target[id])) Target[id] = 0.0;
 #else
-  } else if (any(Target[id])) Target[id] = 0.0; // Write only when necessary
+    Target[id] = 0.0;
 #endif
+  }
 }
 
 [numthreads(4,4,4)]
@@ -48,9 +51,9 @@ void CSClear(uint3 id : SV_DispatchThreadID)
 {
   if (any(id >= Resolution)) return;
 
-  RadianceColorRG[id] = 0;
-  RadianceColorBA[id] = 0;
-  RadianceCount[id] = 0;
+  RadianceRG[id] = 0u;
+  RadianceBA[id] = 0u;
+  RadianceCount[id] = 0u;
 }
 
 [numthreads(64,1,1)]
@@ -78,7 +81,7 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   uint4 intColor = (uint4)round(color * RADIANCE_PRECISION);
 
-  InterlockedAdd(RadianceColorRG[position], intColor.r | intColor.g << 16);
-  InterlockedAdd(RadianceColorBA[position], intColor.b | intColor.a << 16);
+  InterlockedAdd(RadianceRG[position], intColor.r | intColor.g << 16);
+  InterlockedAdd(RadianceBA[position], intColor.b | intColor.a << 16);
   InterlockedAdd(RadianceCount[position], 1);
 }

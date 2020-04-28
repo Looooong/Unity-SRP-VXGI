@@ -9,11 +9,19 @@ using UnityEngine.Experimental.Rendering;
 public class VXGI : MonoBehaviour {
   public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
-  public enum Resolution { Low = 33, Medium = 65, High = 129, VeryHigh = 257, NewLow = 32, NewMedium = 64, NewHigh = 128, NewVeryHigh = 256 }
+  public enum Resolution { Low = 32, Medium = 64, High = 128, VeryHigh = 256 }
 
   public Vector3 center;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
   public Resolution resolution = Resolution.Medium;
+  [Tooltip(
+@"If checked, the voxel resolution will be 2^n+1.
+Mipmap filter will use 3x3x3 Gaussian Kernel (faster).
+
+If unchecked, the voxel resolution will be 2^n.
+Mipmap filter will use 4x4x4 Gaussian Kernel (slower)."
+  )]
+  public bool resolutionPlusOne = true;
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
   [Range(1f, 100f)]
@@ -235,7 +243,7 @@ public class VXGI : MonoBehaviour {
   void CreateTextures() {
     int resolutionModifier = _resolution % 2;
 
-    _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2)];
+    _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2f)];
 
     for (
       int i = 0, currentResolution = _resolution;
@@ -267,8 +275,10 @@ public class VXGI : MonoBehaviour {
   #endregion
 
   void UpdateResolution() {
-    if (_resolution != (int)resolution) {
-      _resolution = (int)resolution;
+    int newResolution = (int)resolution + (resolutionPlusOne ? 1 : 0);
+
+    if (_resolution != newResolution) {
+      _resolution = newResolution;
       ResizeBuffers();
       ResizeTextures();
     }
