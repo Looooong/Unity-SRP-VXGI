@@ -4,6 +4,12 @@
 
 ### Added
 
+- Add icon for gizmos and scripts.
+- Trigger callbacks associated with the following camera events:
+  - Any `CommandBuffer` attached to a few but not all `CameraEvent` using `AddCommandBuffer`.
+  - Any `OnPreRender` or `OnPreCull` or `OnPostRender` methods defined on the camera.
+  - Any `Camera.onPreRender` or `Camera.onPreCull` or `Camera.onPostRender` delegates assigned.
+- Trigger command buffers attached to `CameraEvent`. `OnPreRender`, `OnPreCull` and `OnPostRender` messages are sent as well.
 - Add `Box` filter to mipmap generator. `resolutionPlusOne` is now replaced with `mipmapFilterMode` in `VXGI` script.
   - If using `Box` filter (faster), voxel resolution will be **2<sup>n</sup>**.
   - If using `Gaussian3x3x3` filter (faster), voxel resolution will be **2<sup>n</sup>+1** (recommended).
@@ -28,6 +34,8 @@
 
 ### Changed
 
+- Refactor VXGI renderer.
+  - Mipmap visualization logic is separated into `VXGIMipmapDebug` script. This script now only renders mipmap volume in Game View.
 - Refactor and optimize mipmap filter to use `groupshared` memory in compute shader. This reduces as much as 40% in filter time.
 - Refactor profile sampling.
 - Optimize and refactor `VoxelShader`.
@@ -41,6 +49,7 @@
 
 ### Fixed
 
+- Fix `PostProcessingDebug` not displaying debug overlay.
 - Fix mipmap level visualization.
 - Fix light injection when throttling cone tracing.
 - Fix light source injection.

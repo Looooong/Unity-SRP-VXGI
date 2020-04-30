@@ -4,8 +4,9 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
-[ExecuteInEditMode]
+[ExecuteAlways]
 [RequireComponent(typeof(Camera))]
+[AddComponentMenu("Rendering/VXGI")]
 public class VXGI : MonoBehaviour {
   public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
@@ -27,12 +28,6 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public bool throttleTracing = false;
   [Range(1f, 100f)]
   public float tracingRate = 10f;
-  public bool visualizeMipmap = false;
-  public VXGIRenderer.MipmapSampler mipmapSampler = VXGIRenderer.MipmapSampler.Linear;
-  [Range(0f, 9f)]
-  public float level = 1f;
-  [Range(.02f, 1f)]
-  public float step = .1f;
   public bool followCamera = false;
 
   public bool resolutionPlusOne {
@@ -46,6 +41,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
   public int volume {
     get { return _resolution * _resolution * _resolution; }
+  }
+  public new Camera camera {
+    get { return _camera; }
   }
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
@@ -105,6 +103,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   public void Render(ScriptableRenderContext renderContext, Camera camera, VXGIRenderer renderer) {
+    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreRender", Camera.onPreRender);
+
     _command.BeginSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
@@ -134,19 +134,17 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    if (camera.clearFlags == CameraClearFlags.Skybox) renderContext.DrawSkybox(camera);
+    SetupShader(renderContext);
 
-    if (visualizeMipmap) {
-      renderer.RenderMipmap(renderContext, camera, this);
-    } else {
-      SetupShader(renderContext);
-      renderer.RenderDeferred(renderContext, camera, this);
-    }
+    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
+
+    renderer.RenderDeferred(renderContext, camera, this);
 
     _command.EndSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
+    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {

@@ -12,6 +12,8 @@ Shader "Hidden/VXGI/Visualization"
       Name "Mipmap"
 
       Blend One OneMinusSrcAlpha
+      ZTest Always
+      ZWrite Off
 
       CGPROGRAM
       #pragma vertex vert
@@ -69,7 +71,7 @@ Shader "Hidden/VXGI/Visualization"
       };
 
       float MipmapLevel;
-      float TracingStep;
+      float RayTracingStep;
       static float MipmapSize = MipmapLevel < 1.0 ? MipmapLevel : pow(2, MipmapLevel - 1.0);
 
       v2f vert(uint id : SV_VertexID)
@@ -85,13 +87,13 @@ Shader "Hidden/VXGI/Visualization"
       half4 frag(v2f i) : SV_TARGET
       {
         float3 view = i.view;
-        float3 unit = view * TracingStep / view.z;
+        float3 unit = view * RayTracingStep / view.z;
         view += unit * DitherPattern[i.position.x % 4][i.position.y % 4];
         float3 coordinate = mul(transpose(UNITY_MATRIX_IT_MV), float4(view, 1.0));
 
         half4 color = half4(0.0, 0.0, 0.0, 0.0);
 
-        while ((view.z <= 2 * TracingStep) && (TextureSDF(coordinate) > -0.000001)) {
+        while ((view.z <= 2 * RayTracingStep) && (TextureSDF(coordinate) > -0.000001)) {
           half4 sample = SampleRadiance(coordinate, MipmapSize);
           color = sample + color * (1 - sample.a);
           view += unit;
