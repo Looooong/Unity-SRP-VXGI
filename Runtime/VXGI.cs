@@ -15,13 +15,11 @@ public class VXGI : MonoBehaviour {
   public AntiAliasing antiAliasing = AntiAliasing.X1;
   public Resolution resolution = Resolution.Medium;
   [Tooltip(
-@"If checked, the voxel resolution will be 2^n+1.
-Mipmap filter will use 3x3x3 Gaussian Kernel (faster).
-
-If unchecked, the voxel resolution will be 2^n.
-Mipmap filter will use 4x4x4 Gaussian Kernel (slower)."
+@"Box: fast, 2^n voxel resolution.
+Gaussian 3x3x3: fast, 2^n+1 voxel resolution (recommended).
+Gaussian 4x4x4: slow, 2^n voxel resolution."
   )]
-  public bool resolutionPlusOne = true;
+  public Mipmapper.Mode mipmapFilterMode = Mipmapper.Mode.Gaussian3x3x3;
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
   [Range(1f, 100f)]
@@ -37,11 +35,14 @@ Mipmap filter will use 4x4x4 Gaussian Kernel (slower)."
   public float step = .1f;
   public bool followCamera = false;
 
+  public bool resolutionPlusOne {
+    get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
+  }
   public float bufferScale {
-    get { return 64f / (_resolution - 1); }
+    get { return 64f / (_resolution - _resolution % 2); }
   }
   public float voxelSize {
-    get { return bound / (float)resolution; }
+    get { return bound / (_resolution - _resolution % 2); }
   }
   public int volume {
     get { return _resolution * _resolution * _resolution; }
@@ -275,7 +276,9 @@ Mipmap filter will use 4x4x4 Gaussian Kernel (slower)."
   #endregion
 
   void UpdateResolution() {
-    int newResolution = (int)resolution + (resolutionPlusOne ? 1 : 0);
+    int newResolution = (int)resolution;
+
+    if (resolutionPlusOne) newResolution++;
 
     if (_resolution != newResolution) {
       _resolution = newResolution;
