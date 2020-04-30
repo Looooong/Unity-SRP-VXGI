@@ -4,6 +4,8 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 
 public class Mipmapper {
+  public enum Mode { Box = 0, Gaussian3x3x3 = 1, Gaussian4x4x4 = 2 }
+
   public ComputeShader compute {
     get {
       if (_compute == null) _compute = (ComputeShader)Resources.Load("VXGI/Compute/Mipmapper");
@@ -52,7 +54,7 @@ public class Mipmapper {
     for (var i = 1; i < radiances.Length; i++) {
       int resolution = radiances[i].volumeDepth;
 
-      _command.BeginSample(_sampleFilter + resolution.ToString("D3"));
+      _command.BeginSample(_sampleFilter + _vxgi.mipmapFilterMode.ToString() + '.' + resolution.ToString("D3"));
       _command.SetComputeIntParam(compute, _propDstRes, resolution);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propDst, radiances[i]);
       _command.SetComputeTextureParam(compute, _kernelFilter, _propSrc, radiances[i - 1]);
@@ -61,7 +63,7 @@ public class Mipmapper {
          Mathf.CeilToInt((float)resolution /_threadsFilter.y),
          Mathf.CeilToInt((float)resolution /_threadsFilter.z)
       );
-      _command.EndSample(_sampleFilter + resolution.ToString("D3"));
+      _command.EndSample(_sampleFilter + _vxgi.mipmapFilterMode.ToString() + '.' + resolution.ToString("D3"));
     }
 
     renderContext.ExecuteCommandBuffer(_command);
@@ -88,15 +90,9 @@ public class Mipmapper {
   }
 
   void InitializeKernel() {
-    if (_vxgi.resolutionPlusOne) {
-      _kernelFilter = 0;
-    } else {
-      _kernelFilter = 2;
-    }
+    _kernelFilter = 2 * (int)_vxgi.mipmapFilterMode;
 
-    if (!VXGIRenderPipeline.isD3D11Supported) {
-      _kernelFilter += 1;
-    }
+    if (!VXGIRenderPipeline.isD3D11Supported) _kernelFilter += 1;
 
     _kernelShift = compute.FindKernel("CSShift");
     _threadsFilter = new NumThreads(compute, _kernelFilter);

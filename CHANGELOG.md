@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add `Box` filter to mipmap generator. `resolutionPlusOne` is now replaced with `mipmapFilterMode` in `VXGI` script.
+  - If using `Box` filter (faster), voxel resolution will be **2<sup>n</sup>**.
+  - If using `Gaussian3x3x3` filter (faster), voxel resolution will be **2<sup>n</sup>+1** (recommended).
+  - If using `Gaussian4x4x4` filter (slower), voxel resolution will be **2<sup>n</sup>**.
 - Add `resolutionPlusOne` to `VXGI` script.
   - When `true`, voxel resolution will be **2<sup>n</sup>+1**. Mipmap filter will use 3x3x3 Gaussian Kernel (faster).
   - When `false`, voxel resolution will be **2<sup>n</sup>**. Mipmap filter will use 4x4x4 Gaussian Kernel (slower).
