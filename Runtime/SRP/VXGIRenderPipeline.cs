@@ -2,7 +2,6 @@
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.PostProcessing;
 
 public class VXGIRenderPipeline : RenderPipeline {
   public static bool isD3D11Supported {
@@ -29,6 +28,11 @@ public class VXGIRenderPipeline : RenderPipeline {
   FilterRenderersSettings _filterSettings;
   RendererConfiguration _rendererConfiguration;
   VXGIRenderer _renderer;
+
+  public static void TriggerCameraCallback(Camera camera, string message, Camera.CameraCallback callback) {
+    camera.SendMessage(message, SendMessageOptions.DontRequireReceiver);
+    if (callback != null) callback(camera);
+  }
 
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
     _renderer = new VXGIRenderer(this);
@@ -62,14 +66,6 @@ public class VXGIRenderPipeline : RenderPipeline {
     BeginFrameRendering(cameras);
 
     foreach (var camera in cameras) {
-      var layer = camera.GetComponent<PostProcessLayer>();
-
-      if (layer != null && layer.isActiveAndEnabled) {
-        layer.UpdateVolumeSystem(camera, _command);
-        renderContext.ExecuteCommandBuffer(_command);
-        _command.Clear();
-      }
-
       BeginCameraRendering(camera);
 
       var vxgi = camera.GetComponent<VXGI>();
@@ -102,9 +98,13 @@ public class VXGIRenderPipeline : RenderPipeline {
   }
 
   void RenderFallback(ScriptableRenderContext renderContext, Camera camera) {
+    TriggerCameraCallback(camera, "OnPreRender", Camera.onPreRender);
+
     _command.ClearRenderTarget(true, true, Color.black);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
+
+    TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
 
     ScriptableCullingParameters cullingParams;
     if (!CullResults.GetCullingParameters(camera, out cullingParams)) return;
@@ -121,5 +121,7 @@ public class VXGIRenderPipeline : RenderPipeline {
     renderContext.SetupCameraProperties(camera);
     renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
     renderContext.DrawSkybox(camera);
+
+    TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
   }
 }

@@ -46,3 +46,5 @@ All pull requests are welcome.
 ## Acknowledgement
 
 This project is inspired by [sonicether/SEGI](https://github.com/sonicether/SEGI).
+
+Icons made by [Freepik](https://www.flaticon.com/authors/freepik) from [www.flaticon.com](https://www.flaticon.com).
