@@ -5,7 +5,6 @@ using UnityEngine.Experimental.Rendering;
 
 public class Voxelizer : System.IDisposable {
   int _antiAliasing;
-  int _propDummyTarget;
   int _resolution;
   float _bound;
   Camera _camera;
@@ -22,8 +21,6 @@ public class Voxelizer : System.IDisposable {
 
     _command = new CommandBuffer { name = "VXGI.Voxelizer" };
     _rect = new Rect(0f, 0f, 1f, 1f);
-
-    _propDummyTarget = Shader.PropertyToID("DummyTarget");
 
     CreateCamera();
     CreateCameraDescriptor();
@@ -60,12 +57,12 @@ public class Voxelizer : System.IDisposable {
 
     _command.BeginSample(_command.name);
 
-    _command.GetTemporaryRT(_propDummyTarget, _cameraDescriptor);
-    _command.SetRenderTarget(_propDummyTarget, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
+    _command.GetTemporaryRT(ShaderIDs.Dummy, _cameraDescriptor);
+    _command.SetRenderTarget(ShaderIDs.Dummy, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
 
-    _command.SetGlobalInt("Resolution", _resolution);
-    _command.SetGlobalMatrix("WorldToVoxel", _vxgi.worldToVoxel);
-    _command.SetGlobalMatrix("VoxelToProjection", GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
+    _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
+    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);
+    _command.SetGlobalMatrix(ShaderIDs.VoxelToProjection, GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
 
     _drawSettings.flags = renderer.drawRendererFlags;
@@ -77,7 +74,7 @@ public class Voxelizer : System.IDisposable {
     _command.Clear();
 
     _command.ClearRandomWriteTargets();
-    _command.ReleaseTemporaryRT(_propDummyTarget);
+    _command.ReleaseTemporaryRT(ShaderIDs.Dummy);
 
     _command.EndSample(_command.name);
 
