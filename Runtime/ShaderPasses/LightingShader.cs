@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 public class LightingShader {
@@ -23,46 +22,39 @@ public class LightingShader {
 
   static Material _material;
 
-  int _dummyID;
-  int _lowResColorID;
-  int _lowResDepthID;
   Pass _pass;
 
   public LightingShader(Pass pass) {
     _pass = pass;
-
-    _dummyID = Shader.PropertyToID("Dummy");
-    _lowResColorID = Shader.PropertyToID("LowResColor");
-    _lowResDepthID = Shader.PropertyToID("LowResDepth");
   }
 
   public void Execute(CommandBuffer command, Camera camera, RenderTargetIdentifier destination, float scale = 1f) {
     scale = Mathf.Clamp01(scale);
 
     command.BeginSample(_pass.ToString());
-    command.GetTemporaryRT(_dummyID, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
+    command.GetTemporaryRT(ShaderIDs.Dummy, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
 
     if (scale == 1f) {
-      command.Blit(_dummyID, destination, material, (int)_pass);
+      command.Blit(ShaderIDs.Dummy, destination, material, (int)_pass);
     } else {
       int lowResWidth = (int)(scale * camera.pixelWidth);
       int lowResHeight = (int)(scale * camera.pixelHeight);
 
-      command.GetTemporaryRT(_lowResColorID, lowResWidth, lowResHeight, 0, FilterMode.Bilinear, RenderTextureFormat.RGB111110Float, RenderTextureReadWrite.Linear);
-      command.GetTemporaryRT(_lowResDepthID, lowResWidth, lowResHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
+      command.GetTemporaryRT(ShaderIDs.LowResColor, lowResWidth, lowResHeight, 0, FilterMode.Bilinear, RenderTextureFormat.RGB111110Float, RenderTextureReadWrite.Linear);
+      command.GetTemporaryRT(ShaderIDs.LowResDepth, lowResWidth, lowResHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
 
-      command.SetRenderTarget(_lowResColorID, (RenderTargetIdentifier)_lowResDepthID);
+      command.SetRenderTarget(ShaderIDs.LowResColor, (RenderTargetIdentifier)ShaderIDs.LowResDepth);
       command.ClearRenderTarget(true, true, Color.clear);
 
-      command.Blit(_dummyID, _lowResColorID, material, (int)_pass);
-      command.Blit(_dummyID, _lowResDepthID, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
-      command.Blit(_lowResColorID, destination, UtilityShader.material, (int)UtilityShader.Pass.LowResComposite);
+      command.Blit(ShaderIDs.Dummy, ShaderIDs.LowResColor, material, (int)_pass);
+      command.Blit(ShaderIDs.Dummy, ShaderIDs.LowResDepth, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
+      command.Blit(ShaderIDs.LowResColor, destination, UtilityShader.material, (int)UtilityShader.Pass.LowResComposite);
 
-      command.ReleaseTemporaryRT(_lowResColorID);
-      command.ReleaseTemporaryRT(_lowResDepthID);
+      command.ReleaseTemporaryRT(ShaderIDs.LowResColor);
+      command.ReleaseTemporaryRT(ShaderIDs.LowResDepth);
     }
 
-    command.ReleaseTemporaryRT(_dummyID);
+    command.ReleaseTemporaryRT(ShaderIDs.Dummy);
     command.EndSample(_pass.ToString());
   }
 }

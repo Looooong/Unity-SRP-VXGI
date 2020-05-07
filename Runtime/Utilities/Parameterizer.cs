@@ -4,8 +4,6 @@ using UnityEngine.Experimental.Rendering;
 
 public class Parameterizer : System.IDisposable {
   int _kernelParameterize;
-  int _propNumThreads = Shader.PropertyToID("NumThreads");
-  int _propArguments = Shader.PropertyToID("Arguments");
   ComputeBuffer _arguments = new ComputeBuffer(3, sizeof(int), ComputeBufferType.IndirectArguments);
   ComputeShader _compute = (ComputeShader)Resources.Load("VXGI/Compute/Parameterizer");
 
@@ -19,8 +17,8 @@ public class Parameterizer : System.IDisposable {
   }
 
   public void Parameterize(CommandBuffer command, ComputeBuffer arguments, NumThreads numThreads) {
-    command.SetComputeIntParams(_compute, _propNumThreads, numThreads);
-    command.SetComputeBufferParam(_compute, _kernelParameterize, _propArguments, arguments);
+    command.SetComputeIntParams(_compute, ShaderIDs.NumThreads, numThreads);
+    command.SetComputeBufferParam(_compute, _kernelParameterize, ShaderIDs.Arguments, arguments);
     command.DispatchCompute(_compute, _kernelParameterize, _arguments, 0);
   }
 }

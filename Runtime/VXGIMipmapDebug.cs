@@ -11,8 +11,6 @@ class VXGIMipmapDebug : MonoBehaviour {
   public float level = 1f;
   public float rayTracingStep = .05f;
 
-  int _propMipmapLevel;
-  int _propRayTracingStep;
   Camera _camera;
   CommandBuffer _command;
   VXGI _vxgi;
@@ -23,9 +21,6 @@ class VXGIMipmapDebug : MonoBehaviour {
   }
 
   void OnEnable() {
-    _propMipmapLevel = Shader.PropertyToID("MipmapLevel");
-    _propRayTracingStep = Shader.PropertyToID("RayTracingStep");
-
     _command = new CommandBuffer { name = "VXGI.Debug.Mipmap" };
     _camera.AddCommandBuffer(CameraEvent.AfterEverything, _command);
   }
@@ -48,8 +43,8 @@ class VXGIMipmapDebug : MonoBehaviour {
       _command.DisableShaderKeyword("RADIANCE_POINT_SAMPLER");
     }
 
-    _command.SetGlobalFloat(_propMipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
-    _command.SetGlobalFloat(_propRayTracingStep, rayTracingStep);
+    _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
+    _command.SetGlobalFloat(ShaderIDs.RayTracingStep, rayTracingStep);
     _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
   }

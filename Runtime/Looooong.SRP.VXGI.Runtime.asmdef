@@ -2,9 +2,7 @@
     "name": "Looooong.SRP.VXGI.Runtime",
     "references": [
         "Unity.Postprocessing.Runtime",
-        "Looooong.SRP.VXGI.Runtime.ShaderPasses",
-        "Looooong.SRP.VXGI.Runtime.ShaderStructs",
-        "Looooong.SRP.VXGI.Runtime.Utilities"
+        "Looooong.SRP.VXGI.Runtime.ShaderStructs"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],

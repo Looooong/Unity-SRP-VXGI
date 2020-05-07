@@ -19,10 +19,6 @@ public class Mipmapper {
 
   int _kernelFilter;
   int _kernelShift;
-  int _propDisplacement;
-  int _propDst;
-  int _propDstRes;
-  int _propSrc;
   CommandBuffer _command;
   ComputeShader _compute;
   NumThreads _threadsFilter;
@@ -35,11 +31,6 @@ public class Mipmapper {
     _command = new CommandBuffer { name = "VXGI.Mipmapper" };
 
     InitializeKernel();
-
-    _propDisplacement = Shader.PropertyToID("Displacement");
-    _propDst = Shader.PropertyToID("Dst");
-    _propDstRes = Shader.PropertyToID("DstRes");
-    _propSrc = Shader.PropertyToID("Src");
   }
 
   public void Dispose() {
@@ -55,9 +46,9 @@ public class Mipmapper {
       int resolution = radiances[i].volumeDepth;
 
       _command.BeginSample(_sampleFilter + _vxgi.mipmapFilterMode.ToString() + '.' + resolution.ToString("D3"));
-      _command.SetComputeIntParam(compute, _propDstRes, resolution);
-      _command.SetComputeTextureParam(compute, _kernelFilter, _propDst, radiances[i]);
-      _command.SetComputeTextureParam(compute, _kernelFilter, _propSrc, radiances[i - 1]);
+      _command.SetComputeIntParam(compute, ShaderIDs.Resolution, resolution);
+      _command.SetComputeTextureParam(compute, _kernelFilter, ShaderIDs.Source, radiances[i - 1]);
+      _command.SetComputeTextureParam(compute, _kernelFilter, ShaderIDs.Target, radiances[i]);
       _command.DispatchCompute(compute, _kernelFilter,
          Mathf.CeilToInt((float)resolution /_threadsFilter.x),
          Mathf.CeilToInt((float)resolution /_threadsFilter.y),
@@ -74,9 +65,9 @@ public class Mipmapper {
     UpdateKernel();
 
     _command.BeginSample(_sampleShift);
-    _command.SetComputeIntParam(compute, _propDstRes, (int)_vxgi.resolution);
-    _command.SetComputeIntParams(compute, _propDisplacement, new[] { displacement.x, displacement.y, displacement.z });
-    _command.SetComputeTextureParam(compute, _kernelShift, _propDst, _vxgi.radiances[0]);
+    _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);
+    _command.SetComputeIntParams(compute, ShaderIDs.Displacement, new[] { displacement.x, displacement.y, displacement.z });
+    _command.SetComputeTextureParam(compute, _kernelShift, ShaderIDs.Target, _vxgi.radiances[0]);
     _command.DispatchCompute(compute, _kernelShift,
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsShift.x),
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsShift.y),

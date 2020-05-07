@@ -166,11 +166,10 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   void SetupShader(ScriptableRenderContext renderContext) {
     _lightSources.SetData(_lights);
 
-    _command.SetGlobalInt("LightCount", _lights.Count);
-    _command.SetGlobalBuffer("LightSources", _lightSources);
-
-    _command.SetGlobalInt("Resolution", _resolution);
-    _command.SetGlobalMatrix("WorldToVoxel", worldToVoxel);
+    _command.SetGlobalBuffer(ShaderIDs.LightSources, _lightSources);
+    _command.SetGlobalInt(ShaderIDs.LightCount, _lights.Count);
+    _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
+    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
@@ -255,7 +254,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     }
 
     for (int i = 0; i < 9; i++) {
-      Shader.SetGlobalTexture("Radiance" + i, radiances[Mathf.Min(i, _radiances.Length - 1)]);
+      Shader.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
     }
   }
 
