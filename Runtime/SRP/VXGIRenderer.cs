@@ -252,7 +252,7 @@ public class VXGIRenderer : System.IDisposable {
 
     _filterSettings.renderQueueRange = RenderQueueRange.transparent;
 
-    _command.SetRenderTarget(ShaderIDs.FrameBuffer);
+    _command.SetRenderTarget(ShaderIDs.FrameBuffer, (RenderTargetIdentifier)ShaderIDs._CameraDepthTexture);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 

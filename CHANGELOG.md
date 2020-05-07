@@ -49,6 +49,7 @@
 
 ### Fixed
 
+- Fix render transparent forward pass without camera depth texture.
 - Fix `PostProcessingDebug` not displaying debug overlay.
 - Fix mipmap level visualization.
 - Fix light injection when throttling cone tracing.
