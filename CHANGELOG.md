@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add backers list to README.
 - Add icon for gizmos and scripts.
 - Trigger callbacks associated with the following camera events:
   - Any `CommandBuffer` attached to a few but not all `CameraEvent` using `AddCommandBuffer`.

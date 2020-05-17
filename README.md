@@ -43,6 +43,12 @@ All pull requests are welcome.
 
 [MIT](LICENSE.md)
 
+## Backers
+
+Thank you for your support! :pray:
+
+[![David Jeske](https://avatars3.githubusercontent.com/u/15093?s=128)](https://github.com/jeske)
+
 ## Acknowledgement
 
 This project is inspired by [sonicether/SEGI](https://github.com/sonicether/SEGI).
