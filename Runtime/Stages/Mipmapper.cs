@@ -1,7 +1,5 @@
-using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 
 public class Mipmapper {
   public enum Mode { Box = 0, Gaussian3x3x3 = 1, Gaussian4x4x4 = 2 }

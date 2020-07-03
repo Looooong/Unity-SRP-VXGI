@@ -1,19 +1,11 @@
 ﻿using System.Collections.ObjectModel;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 public class VXGIRenderPipeline : RenderPipeline {
-  public static bool isD3D11Supported {
-    get { return _D3D11DeviceType.Contains(SystemInfo.graphicsDeviceType); }
-  }
+  public static bool isD3D11Supported => _D3D11DeviceType.Contains(SystemInfo.graphicsDeviceType);
 
-  public DrawRendererFlags drawRendererFlags {
-    get { return _drawRendererFlags; }
-  }
-  public RendererConfiguration rendererConfiguration {
-    get { return _rendererConfiguration; }
-  }
+  public PerObjectData PerObjectData { get; }
 
   static readonly ReadOnlyCollection<GraphicsDeviceType> _D3D11DeviceType = new ReadOnlyCollection<GraphicsDeviceType>(new[] {
     GraphicsDeviceType.Direct3D11,
@@ -23,10 +15,8 @@ public class VXGIRenderPipeline : RenderPipeline {
   });
 
   CommandBuffer _command;
-  CullResults _cullResults;
-  DrawRendererFlags _drawRendererFlags;
-  FilterRenderersSettings _filterSettings;
-  RendererConfiguration _rendererConfiguration;
+  FilteringSettings _filteringSettings;
+  ScriptableCullingParameters _cullingParameters;
   VXGIRenderer _renderer;
 
   public static void TriggerCameraCallback(Camera camera, string message, Camera.CameraCallback callback) {
@@ -37,62 +27,52 @@ public class VXGIRenderPipeline : RenderPipeline {
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
     _renderer = new VXGIRenderer(this);
     _command = new CommandBuffer() { name = "VXGI.RenderPipeline" };
-    _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.opaque };
+    _filteringSettings = FilteringSettings.defaultValue;
 
-    _drawRendererFlags = DrawRendererFlags.None;
-    if (asset.dynamicBatching) _drawRendererFlags |= DrawRendererFlags.EnableDynamicBatching;
-
-    _rendererConfiguration = RendererConfiguration.None;
-
-    if (asset.environmentLighting) _rendererConfiguration |= RendererConfiguration.PerObjectLightProbe;
-    if (asset.environmentReflections) _rendererConfiguration |= RendererConfiguration.PerObjectReflectionProbes;
-
+    PerObjectData = asset.perObjectData;
     Shader.globalRenderPipeline = "VXGI";
-
     GraphicsSettings.lightsUseLinearIntensity = true;
     GraphicsSettings.useScriptableRenderPipelineBatching = asset.SRPBatching;
   }
 
-  public override void Dispose() {
-    base.Dispose();
+  protected override void Dispose(bool disposing) {
+    base.Dispose(disposing);
 
     _command.Dispose();
 
     Shader.globalRenderPipeline = string.Empty;
   }
 
-  public override void Render(ScriptableRenderContext renderContext, Camera[] cameras) {
-    base.Render(renderContext, cameras);
-    BeginFrameRendering(cameras);
+  protected override void Render(ScriptableRenderContext renderContext, Camera[] cameras) {
+    var mainCamera = Camera.main;
+
+    BeginFrameRendering(renderContext, cameras);
 
     foreach (var camera in cameras) {
-      BeginCameraRendering(camera);
+      BeginCameraRendering(renderContext, camera);
 
-      var vxgi = camera.GetComponent<VXGI>();
-
-      if (vxgi != null && vxgi.isActiveAndEnabled) {
+      if (camera.TryGetComponent<VXGI>(out var vxgi) && vxgi.isActiveAndEnabled) {
         vxgi.Render(renderContext, _renderer);
       } else {
-        bool rendered = false;
-
 #if UNITY_EDITOR
         if (camera.cameraType == CameraType.SceneView) {
           ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
         }
 
-        if (Camera.main != null) {
-          vxgi = Camera.main.GetComponent<VXGI>();
-
-          if (vxgi != null && vxgi.isActiveAndEnabled) {
-            vxgi.Render(renderContext, camera, _renderer);
-            rendered = true;
-          }
+        if (mainCamera != null && mainCamera.TryGetComponent<VXGI>(out vxgi) && vxgi.isActiveAndEnabled) {
+          vxgi.Render(renderContext, camera, _renderer);
+        } else {
+          RenderFallback(renderContext, camera);
         }
+#else
+        RenderFallback(renderContext, camera);
 #endif
-
-        if (!rendered) RenderFallback(renderContext, camera);
       }
+
+      EndCameraRendering(renderContext, camera);
     }
+
+    EndFrameRendering(renderContext, cameras);
 
     renderContext.Submit();
   }
@@ -106,20 +86,19 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
 
-    ScriptableCullingParameters cullingParams;
-    if (!CullResults.GetCullingParameters(camera, out cullingParams)) return;
-    CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
+    if (!camera.TryGetCullingParameters(out _cullingParameters)) return;
 
-    var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("ForwardBase"));
-    drawSettings.SetShaderPassName(1, new ShaderPassName("PrepassBase"));
-    drawSettings.SetShaderPassName(2, new ShaderPassName("Always"));
-    drawSettings.SetShaderPassName(3, new ShaderPassName("Vertex"));
-    drawSettings.SetShaderPassName(4, new ShaderPassName("VertexLMRGBM"));
-    drawSettings.SetShaderPassName(5, new ShaderPassName("VertexLM"));
-    drawSettings.flags = _drawRendererFlags;
+    var cullingResults = renderContext.Cull(ref _cullingParameters);
+    var drawingSettings = new DrawingSettings { perObjectData = PerObjectData };
+    drawingSettings.SetShaderPassName(0, ShaderTagIDs.Deferred);
+    drawingSettings.SetShaderPassName(1, ShaderTagIDs.PrepassBase);
+    drawingSettings.SetShaderPassName(2, ShaderTagIDs.Always);
+    drawingSettings.SetShaderPassName(3, ShaderTagIDs.Vertex);
+    drawingSettings.SetShaderPassName(4, ShaderTagIDs.VertexLMRGBM);
+    drawingSettings.SetShaderPassName(5, ShaderTagIDs.VertexLM);
 
     renderContext.SetupCameraProperties(camera);
-    renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
+    renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
     renderContext.DrawSkybox(camera);
 
     TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);

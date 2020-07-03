@@ -1,36 +1,31 @@
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
 
 public class VXGIRenderer : System.IDisposable {
-  public DrawRendererFlags drawRendererFlags {
-    get { return _renderPipeline.drawRendererFlags; }
-  }
-  public RendererConfiguration rendererConfiguration {
-    get { return _renderPipeline.rendererConfiguration; }
-  }
-
   const string _sampleCameraEvent = "CameraEvent.";
   const string _samplePostProcessRender = "PostProcess.Render";
   const string _samplePostProcessRenderOpaqueOnly = "PostProcess.Render.OpaqueOnly";
   const string _sampleRenderLighting = "Render.Lighting";
 
+  public VXGIRenderPipeline RenderPipeline { get; }
+
   float[] _renderScale;
   CommandBuffer _command;
   CommandBuffer _eventCommand;
-  CullResults _cullResults;
-  FilterRenderersSettings _filterSettings;
+  CullingResults _cullingResults;
+  FilteringSettings _filteringSettings;
   LightingShader[] _lightingPasses;
   PostProcessRenderContext _postProcessRenderContext;
   RenderTargetBinding _gBufferBinding;
-  VXGIRenderPipeline _renderPipeline;
+  ScriptableCullingParameters _cullingParameters;
 
   public VXGIRenderer(VXGIRenderPipeline renderPipeline) {
+    RenderPipeline = renderPipeline;
+
     _command = new CommandBuffer { name = "VXGI.Renderer" };
     _eventCommand = new CommandBuffer();
-    _filterSettings = new FilterRenderersSettings(true);
-    _renderPipeline = renderPipeline;
+    _filteringSettings = FilteringSettings.defaultValue;
 
     _gBufferBinding = new RenderTargetBinding(
       new RenderTargetIdentifier[] { ShaderIDs._CameraGBufferTexture0, ShaderIDs._CameraGBufferTexture1, ShaderIDs._CameraGBufferTexture2, ShaderIDs._CameraGBufferTexture3 },
@@ -57,9 +52,9 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   public void RenderDeferred(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
-    ScriptableCullingParameters cullingParams;
-    if (!CullResults.GetCullingParameters(camera, out cullingParams)) return;
-    CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
+    if (!camera.TryGetCullingParameters(out _cullingParameters)) return;
+
+    _cullingResults = renderContext.Cull(ref _cullingParameters);
 
     renderContext.SetupCameraProperties(camera);
 
@@ -119,12 +114,16 @@ public class VXGIRenderer : System.IDisposable {
     RenderTransparent(renderContext, camera);
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterForwardAlpha, vxgi);
 
+    renderContext.DrawGizmos(camera, GizmoSubset.PreImageEffects);
+
     TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeImageEffects, vxgi);
     RenderPostProcessing(renderContext, camera);
     _command.Blit(ShaderIDs.FrameBuffer, BuiltinRenderTextureType.CameraTarget);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterImageEffects, vxgi);
+
+    renderContext.DrawGizmos(camera, GizmoSubset.PostImageEffects);
 
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterEverything, vxgi);
 
@@ -161,14 +160,11 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   void RenderGBuffers(ScriptableRenderContext renderContext, Camera camera) {
-    var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("Deferred"));
-    drawSettings.flags = _renderPipeline.drawRendererFlags;
-    drawSettings.rendererConfiguration = _renderPipeline.rendererConfiguration;
-    drawSettings.sorting.flags = SortFlags.CommonOpaque;
+    var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonOpaque };
+    var drawingSettings = new DrawingSettings(ShaderTagIDs.Deferred, sortingSettings) { perObjectData = RenderPipeline.PerObjectData };
 
-    _filterSettings.renderQueueRange = RenderQueueRange.opaque;
-
-    renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
+    _filteringSettings.renderQueueRange = RenderQueueRange.opaque;
+    renderContext.DrawRenderers(_cullingResults, ref drawingSettings, ref _filteringSettings);
   }
 
   void RenderLighting(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
@@ -245,18 +241,15 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   void RenderTransparent(ScriptableRenderContext renderContext, Camera camera) {
-    var drawSettings = new DrawRendererSettings(camera, new ShaderPassName("ForwardBase"));
-    drawSettings.flags = _renderPipeline.drawRendererFlags;
-    drawSettings.rendererConfiguration = _renderPipeline.rendererConfiguration;
-    drawSettings.sorting.flags = SortFlags.CommonTransparent;
-
-    _filterSettings.renderQueueRange = RenderQueueRange.transparent;
-
     _command.SetRenderTarget(ShaderIDs.FrameBuffer, (RenderTargetIdentifier)ShaderIDs._CameraDepthTexture);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    renderContext.DrawRenderers(_cullResults.visibleRenderers, ref drawSettings, _filterSettings);
+    var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonTransparent };
+    var drawingSettings = new DrawingSettings(ShaderTagIDs.ForwardBase, sortingSettings) { perObjectData = RenderPipeline.PerObjectData };
+
+    _filteringSettings.renderQueueRange = RenderQueueRange.transparent;
+    renderContext.DrawRenderers(_cullingResults, ref drawingSettings, ref _filteringSettings);
   }
 
   void TriggerCameraEvent(ScriptableRenderContext renderContext, Camera camera, CameraEvent cameraEvent, VXGI vxgi) {

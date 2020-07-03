@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public struct LightSource {
   public const int size = (3 + 3 + 3 + 3 + 1 + 1 + 1 + 1) * 4;
@@ -12,10 +13,10 @@ public struct LightSource {
   public float spotFactor; // 1 * 4 bytes
   public uint type; // 1 * 4 bytes
 
-  public LightSource(UnityEngine.Experimental.Rendering.VisibleLight light, Matrix4x4 worldToVoxel) {
+  public LightSource(VisibleLight light, Matrix4x4 worldToVoxel) {
     color = (Vector4)light.finalColor;
-    direction = light.localToWorld.GetColumn(2);
-    worldPosition = light.localToWorld.GetColumn(3);
+    direction = light.localToWorldMatrix.GetColumn(2);
+    worldPosition = light.localToWorldMatrix.GetColumn(3);
     voxelPosition = worldToVoxel * new Vector4(worldPosition.x, worldPosition.y, worldPosition.z, 1f);
     range = light.range;
     spotCos = 0f;

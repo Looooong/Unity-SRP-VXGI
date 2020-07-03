@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0]
+
+### Breaking changes
+
+- Upgraded to Unity 2019. Dropped support for Unity 2018.
+- Removed `dynamicBatching` from Render Pipeline Asset. Configure dynamic batching in `Project Settings/Player/Others Settings` instead.
+
 ## [0.0.1]
 
 ### Added
