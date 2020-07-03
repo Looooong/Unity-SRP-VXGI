@@ -2,7 +2,6 @@
 using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 
 [ExecuteAlways]
 [RequireComponent(typeof(Camera))]

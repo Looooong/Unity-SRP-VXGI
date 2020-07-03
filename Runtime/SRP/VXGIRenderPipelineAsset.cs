@@ -1,28 +1,14 @@
 ﻿using UnityEngine;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 [CreateAssetMenu(fileName = "VXGIRenderPipeline.asset", menuName = "Rendering/VXGI Render Pipeline Asset", order = 320)]
 public class VXGIRenderPipelineAsset : RenderPipelineAsset {
-  public bool dynamicBatching;
   public bool SRPBatching;
+  public PerObjectData perObjectData;
 
-  [Header("Lighting Settings")]
-  public bool environmentLighting = true;
-  public bool environmentReflections = true;
+  public override Material defaultMaterial => (Material)Resources.Load("VXGI/Material/Default");
+  public override Material defaultParticleMaterial => (Material)Resources.Load("VXGI/Material/Default-Particle");
+  public override Shader defaultShader => Shader.Find("VXGI/Standard");
 
-  public override Material GetDefaultMaterial() {
-    return (Material)Resources.Load("VXGI/Material/Default");
-  }
-
-  public override Material GetDefaultParticleMaterial() {
-    return (Material)Resources.Load("VXGI/Material/Default-Particle");
-  }
-
-  public override Shader GetDefaultShader() {
-    return Shader.Find("VXGI/Standard");
-  }
-
-  protected override IRenderPipeline InternalCreatePipeline() {
-    return new VXGIRenderPipeline(this);
-  }
+  protected override RenderPipeline CreatePipeline() => new VXGIRenderPipeline(this);
 }

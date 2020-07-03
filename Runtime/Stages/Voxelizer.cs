@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 
 public class Voxelizer : System.IDisposable {
   int _antiAliasing;
@@ -9,11 +7,11 @@ public class Voxelizer : System.IDisposable {
   float _bound;
   Camera _camera;
   CommandBuffer _command;
-  CullResults _cullResults;
-  DrawRendererSettings _drawSettings;
-  FilterRenderersSettings _filterSettings;
+  DrawingSettings _drawingSettings;
+  FilteringSettings _filteringSettings;
   Rect _rect;
   RenderTextureDescriptor _cameraDescriptor;
+  ScriptableCullingParameters _cullingParameters;
   VXGI _vxgi;
 
   public Voxelizer(VXGI vxgi) {
@@ -39,13 +37,13 @@ public class Voxelizer : System.IDisposable {
   }
 
   public void Voxelize(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
-    ScriptableCullingParameters cullingParams;
-    if (!CullResults.GetCullingParameters(_camera, out cullingParams)) return;
-    CullResults.Cull(ref cullingParams, renderContext, ref _cullResults);
+    if (!_camera.TryGetCullingParameters(out _cullingParameters)) return;
+  
+    var cullingResults = renderContext.Cull(ref _cullingParameters);
 
     _vxgi.lights.Clear();
 
-    foreach (var light in _cullResults.visibleLights) {
+    foreach (var light in cullingResults.visibleLights) {
       if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
         _vxgi.lights.Add(new LightSource(light, _vxgi.worldToVoxel));
       }
@@ -65,11 +63,10 @@ public class Voxelizer : System.IDisposable {
     _command.SetGlobalMatrix(ShaderIDs.VoxelToProjection, GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
 
-    _drawSettings.flags = renderer.drawRendererFlags;
-    _drawSettings.rendererConfiguration = renderer.rendererConfiguration;
+    _drawingSettings.perObjectData = renderer.RenderPipeline.PerObjectData;
 
     renderContext.ExecuteCommandBuffer(_command);
-    renderContext.DrawRenderers(_cullResults.visibleRenderers, ref _drawSettings, _filterSettings);
+    renderContext.DrawRenderers(cullingResults, ref _drawingSettings, ref _filteringSettings);
 
     _command.Clear();
 
@@ -104,9 +101,9 @@ public class Voxelizer : System.IDisposable {
   }
 
   void CreateCameraSettings() {
-    _drawSettings = new DrawRendererSettings(_camera, new ShaderPassName("Voxelization"));
-    _drawSettings.sorting.flags = SortFlags.OptimizeStateChanges;
-    _filterSettings = new FilterRenderersSettings(true) { renderQueueRange = RenderQueueRange.all };
+    var sortingSettings = new SortingSettings(_camera) { criteria = SortingCriteria.OptimizeStateChanges };
+    _drawingSettings = new DrawingSettings(ShaderTagIDs.Voxelization, sortingSettings);
+    _filteringSettings = new FilteringSettings(RenderQueueRange.all);
   }
 
   void ResizeCamera() {

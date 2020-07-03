@@ -14,7 +14,7 @@
 
 ## Requirements
 
-- Unity 2018 (Experimental API). Using Unity 2019 would require slight modification to the code.
+- Unity 2019.
 - Shader Model 4.5 or newer.
 - Graphic API that supports geometry shader (this excludes Metal API).
 - Approximately 1GB of VRAM for highest voxel resolution setting.

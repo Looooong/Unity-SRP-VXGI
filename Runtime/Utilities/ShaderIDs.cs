@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using UnityEngine;
 
-static class ShaderIDs {
+internal static class ShaderIDs {
   internal static readonly Collection<int> Radiance = new Collection<int>(new [] {
     Shader.PropertyToID("Radiance0"),
     Shader.PropertyToID("Radiance1"),
