@@ -114,7 +114,7 @@ public class VXGIRenderer : System.IDisposable {
     RenderTransparent(renderContext, camera);
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterForwardAlpha, vxgi);
 
-    renderContext.DrawGizmos(camera, GizmoSubset.PreImageEffects);
+    RenderGizmos(renderContext, camera, GizmoSubset.PreImageEffects);
 
     TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeImageEffects, vxgi);
     RenderPostProcessing(renderContext, camera);
@@ -123,7 +123,7 @@ public class VXGIRenderer : System.IDisposable {
     _command.Clear();
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterImageEffects, vxgi);
 
-    renderContext.DrawGizmos(camera, GizmoSubset.PostImageEffects);
+    RenderGizmos(renderContext, camera, GizmoSubset.PostImageEffects);
 
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterEverything, vxgi);
 
@@ -165,6 +165,15 @@ public class VXGIRenderer : System.IDisposable {
 
     _filteringSettings.renderQueueRange = RenderQueueRange.opaque;
     renderContext.DrawRenderers(_cullingResults, ref drawingSettings, ref _filteringSettings);
+  }
+
+  [System.Diagnostics.Conditional("UNITY_EDITOR")]
+  void RenderGizmos(ScriptableRenderContext renderContext, Camera camera, GizmoSubset gizmoSubset)
+  {
+    if (UnityEditor.SceneView.currentDrawingSceneView?.drawGizmos ?? false)
+    {
+      renderContext.DrawGizmos(camera, gizmoSubset);
+    }
   }
 
   void RenderLighting(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
