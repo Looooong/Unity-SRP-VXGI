@@ -118,7 +118,8 @@ public class VXGIRenderer : System.IDisposable {
 
     TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeImageEffects, vxgi);
     RenderPostProcessing(renderContext, camera);
-    _command.Blit(ShaderIDs.FrameBuffer, BuiltinRenderTextureType.CameraTarget);
+    _command.SetGlobalVector(ShaderIDs.BlitViewport, new Vector4(camera.rect.width, camera.rect.height, camera.rect.xMin, camera.rect.yMin));
+    _command.Blit(ShaderIDs.FrameBuffer, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.BlitViewport);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterImageEffects, vxgi);
@@ -143,8 +144,9 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   void CopyCameraTargetToFrameBuffer(ScriptableRenderContext renderContext, Camera camera) {
-    _command.GetTemporaryRT(ShaderIDs.Dummy, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
-    _command.Blit(ShaderIDs._CameraDepthTexture, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopy);
+    _command.GetTemporaryRT(ShaderIDs.Dummy, Screen.width, Screen.height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+    _command.SetGlobalVector(ShaderIDs.BlitViewport, new Vector4(camera.rect.width, camera.rect.height, camera.rect.xMin, camera.rect.yMin));
+    _command.Blit(ShaderIDs._CameraDepthTexture, BuiltinRenderTextureType.CameraTarget, UtilityShader.material, (int)UtilityShader.Pass.DepthCopyViewport);
     _command.Blit(BuiltinRenderTextureType.CameraTarget, ShaderIDs.Dummy);
     _command.Blit(ShaderIDs.Dummy, ShaderIDs.FrameBuffer, UtilityShader.material, (int)UtilityShader.Pass.GrabCopy);
     _command.ReleaseTemporaryRT(ShaderIDs.Dummy);

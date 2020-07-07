@@ -21,6 +21,7 @@ internal static class ShaderIDs {
   internal static readonly int _CameraGBufferTexture2 = Shader.PropertyToID("_CameraGBufferTexture2");
   internal static readonly int _CameraGBufferTexture3 = Shader.PropertyToID("_CameraGBufferTexture3");
   internal static readonly int Arguments = Shader.PropertyToID("Arguments");
+  internal static readonly int BlitViewport = Shader.PropertyToID("BlitViewport");
   internal static readonly int ClipToVoxel = Shader.PropertyToID("ClipToVoxel");
   internal static readonly int ClipToWorld = Shader.PropertyToID("ClipToWorld");
   internal static readonly int Displacement = Shader.PropertyToID("Displacement");
