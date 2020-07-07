@@ -101,13 +101,15 @@ Shader "Hidden/VXGI/Lighting"
       #pragma vertex BlitVertex
       #pragma fragment frag
 
+      float IndirectDiffuseModifier;
+
       float3 frag(BlitInput i) : SV_TARGET
       {
         float depth = _CameraDepthTexture.Sample(point_clamp_sampler, i.uv).r;
 
         if (Linear01Depth(depth) >= 1.0) return 0.0;
 
-        return IndirectDiffusePixelRadiance(ConstructLightingData(i, depth));
+        return IndirectDiffuseModifier * IndirectDiffusePixelRadiance(ConstructLightingData(i, depth));
       }
       ENDHLSL
     }
@@ -120,13 +122,15 @@ Shader "Hidden/VXGI/Lighting"
       #pragma vertex BlitVertex
       #pragma fragment frag
 
+      float IndirectSpecularModifier;
+
       float3 frag(BlitInput i) : SV_TARGET
       {
         float depth = _CameraDepthTexture.Sample(point_clamp_sampler, i.uv).r;
 
         if (Linear01Depth(depth) >= 1.0) return 0.0;
 
-        return IndirectSpecularPixelRadiance(ConstructLightingData(i, depth));
+        return IndirectSpecularModifier * IndirectSpecularPixelRadiance(ConstructLightingData(i, depth));
       }
       ENDHLSL
     }

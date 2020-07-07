@@ -20,6 +20,8 @@ Gaussian 3x3x3: fast, 2^n+1 voxel resolution (recommended).
 Gaussian 4x4x4: slow, 2^n voxel resolution."
   )]
   public Mipmapper.Mode mipmapFilterMode = Mipmapper.Mode.Gaussian3x3x3;
+  public float indirectDiffuseModifier = 1f;
+  public float indirectSpecularModifier = 1f;
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
   [Range(1f, 100f)]
@@ -110,12 +112,12 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     UpdateResolution();
 
-    float realtime = Time.realtimeSinceStartup;
+    float time = Time.unscaledTime;
     bool tracingThrottled = throttleTracing;
 
     if (tracingThrottled) {
-      if (_previousTrace + 1f / tracingRate < realtime) {
-        _previousTrace = realtime;
+      if (_previousTrace + 1f / tracingRate < time) {
+        _previousTrace = time;
 
         PrePass(renderContext, renderer);
       }
@@ -166,6 +168,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _lightSources.SetData(_lights);
 
     _command.SetGlobalBuffer(ShaderIDs.LightSources, _lightSources);
+    _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
+    _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
     _command.SetGlobalInt(ShaderIDs.LightCount, _lights.Count);
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
     _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
