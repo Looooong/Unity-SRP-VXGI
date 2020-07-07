@@ -52,6 +52,7 @@
   {
     Tags { "RenderPipeline"="VXGI" }
 
+    UsePass "Standard/FORWARD"
     UsePass "Standard/DEFERRED"
     UsePass "Hidden/VXGI/Voxelization/VOXELIZATION"
   }

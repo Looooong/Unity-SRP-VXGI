@@ -51,15 +51,19 @@ public class VXGIRenderPipeline : RenderPipeline {
     foreach (var camera in cameras) {
       BeginCameraRendering(renderContext, camera);
 
-      if (camera.TryGetComponent<VXGI>(out var vxgi) && vxgi.isActiveAndEnabled) {
-        vxgi.Render(renderContext, _renderer);
+      if (camera.cameraType == CameraType.Game) {
+        if (camera.TryGetComponent<VXGI>(out var vxgi) && vxgi.isActiveAndEnabled) {
+          vxgi.Render(renderContext, _renderer);
+        } else {
+          RenderFallback(renderContext, camera);
+        }
       } else {
 #if UNITY_EDITOR
         if (camera.cameraType == CameraType.SceneView) {
           ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
         }
 
-        if (mainCamera != null && mainCamera.TryGetComponent<VXGI>(out vxgi) && vxgi.isActiveAndEnabled) {
+        if (mainCamera != null && mainCamera.TryGetComponent<VXGI>(out var vxgi) && vxgi.isActiveAndEnabled) {
           vxgi.Render(renderContext, camera, _renderer);
         } else {
           RenderFallback(renderContext, camera);
@@ -80,17 +84,13 @@ public class VXGIRenderPipeline : RenderPipeline {
   void RenderFallback(ScriptableRenderContext renderContext, Camera camera) {
     TriggerCameraCallback(camera, "OnPreRender", Camera.onPreRender);
 
-    _command.ClearRenderTarget(true, true, Color.black);
-    renderContext.ExecuteCommandBuffer(_command);
-    _command.Clear();
+    if (!camera.TryGetCullingParameters(out _cullingParameters)) return;
 
     TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
 
-    if (!camera.TryGetCullingParameters(out _cullingParameters)) return;
-
     var cullingResults = renderContext.Cull(ref _cullingParameters);
     var drawingSettings = new DrawingSettings { perObjectData = PerObjectData };
-    drawingSettings.SetShaderPassName(0, ShaderTagIDs.Deferred);
+    drawingSettings.SetShaderPassName(0, ShaderTagIDs.ForwardBase);
     drawingSettings.SetShaderPassName(1, ShaderTagIDs.PrepassBase);
     drawingSettings.SetShaderPassName(2, ShaderTagIDs.Always);
     drawingSettings.SetShaderPassName(3, ShaderTagIDs.Vertex);
@@ -98,6 +98,11 @@ public class VXGIRenderPipeline : RenderPipeline {
     drawingSettings.SetShaderPassName(5, ShaderTagIDs.VertexLM);
 
     renderContext.SetupCameraProperties(camera);
+
+    _command.ClearRenderTarget(true, true, camera.backgroundColor);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+
     renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
     renderContext.DrawSkybox(camera);
 
