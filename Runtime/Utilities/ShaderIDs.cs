@@ -27,6 +27,8 @@ internal static class ShaderIDs {
   internal static readonly int Displacement = Shader.PropertyToID("Displacement");
   internal static readonly int Dummy = Shader.PropertyToID("Dummy");
   internal static readonly int FrameBuffer = Shader.PropertyToID("FrameBuffer");
+  internal static readonly int IndirectDiffuseModifier = Shader.PropertyToID("IndirectDiffuseModifier");
+  internal static readonly int IndirectSpecularModifier = Shader.PropertyToID("IndirectSpecular`Modifier");
   internal static readonly int LightCount = Shader.PropertyToID("LightCount");
   internal static readonly int LightSources = Shader.PropertyToID("LightSources");
   internal static readonly int LowResColor = Shader.PropertyToID("LowResColor");
