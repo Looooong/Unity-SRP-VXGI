@@ -11,6 +11,26 @@ Shader "Hidden/VXGI/Utility"
 
     Pass
     {
+      Name "BlitViewport"
+
+      HLSLPROGRAM
+      #pragma vertex BlitViewportVertex
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
+
+      sampler2D _MainTex;
+
+      float4 frag(BlitInput i) : SV_TARGET
+      {
+        return tex2D(_MainTex, i.uv);
+      }
+      ENDHLSL
+    }
+
+    Pass
+    {
       Name "DepthCopy"
 
       BlendOp Min, Max
@@ -18,6 +38,35 @@ Shader "Hidden/VXGI/Utility"
 
       HLSLPROGRAM
       #pragma vertex BlitVertex
+      #pragma fragment frag
+
+      #include "UnityCG.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BlitSupport.hlsl"
+
+      sampler2D _CameraDepthTexture;
+
+      float4 frag(BlitInput i, out float depth : SV_DEPTH) : SV_TARGET
+      {
+        depth = tex2D(_CameraDepthTexture, i.uv).r;
+
+        if (Linear01Depth(depth) < 1.0) {
+          return float4(0.0, 0.0, 0.0, 1.0);
+        } else {
+          return 1.0;
+        }
+      }
+      ENDHLSL
+    }
+
+    Pass
+    {
+      Name "DepthCopyViewport"
+
+      BlendOp Min, Max
+      ZWrite On
+
+      HLSLPROGRAM
+      #pragma vertex BlitViewportVertex
       #pragma fragment frag
 
       #include "UnityCG.cginc"
@@ -80,12 +129,16 @@ Shader "Hidden/VXGI/Utility"
       };
 
       sampler2D _MainTex;
+      float4 BlitViewport;
 
       v2f vert(appdata_base v)
       {
+        v.vertex.xy = (v.vertex.xy - BlitViewport.zw) / BlitViewport.xy;
+
         v2f o;
         o.position = UnityObjectToClipPos(v.vertex);
         o.uv = ComputeScreenPos(o.position);
+        o.uv.xy = mad(o.uv.xy, BlitViewport.xy, BlitViewport.zw);
 
 #ifdef PROJECTION_PARAMS_X
         if (_ProjectionParams.x < 0.0) o.uv.y = 1.0 - o.uv.y;

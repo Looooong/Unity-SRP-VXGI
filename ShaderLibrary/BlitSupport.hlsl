@@ -13,8 +13,20 @@ struct BlitInput
   float2 uv : TEXCOORD;
 };
 
+float4 BlitViewport;
+
 BlitInput BlitVertex(appdata_base v)
 {
+  BlitInput o;
+  o.vertex = UnityObjectToClipPos(v.vertex);
+  o.uv = v.texcoord;
+  return o;
+}
+
+BlitInput BlitViewportVertex(appdata_base v)
+{
+  v.vertex.xy = mad(v.vertex.xy, BlitViewport.xy, BlitViewport.zw);
+
   BlitInput o;
   o.vertex = UnityObjectToClipPos(v.vertex);
   o.uv = v.texcoord;

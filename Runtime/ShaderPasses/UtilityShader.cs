@@ -2,10 +2,12 @@ using UnityEngine;
 
 public static class UtilityShader {
   public enum Pass {
-    DepthCopy = 0,
-    EncodeDepthNormal = 1,
-    GrabCopy = 2,
-    LowResComposite = 3
+    BlitViewport,
+    DepthCopy,
+    DepthCopyViewport,
+    EncodeDepthNormal,
+    GrabCopy,
+    LowResComposite
   }
 
   public static Material material {
