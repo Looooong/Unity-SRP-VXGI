@@ -10,6 +10,7 @@
 ### Fixed
 
 - Fixed the gizmos being drawn in Game View.
+- Fixed camera stacking.
 
 ## [0.0.1]
 

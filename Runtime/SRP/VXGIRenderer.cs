@@ -172,10 +172,12 @@ public class VXGIRenderer : System.IDisposable {
   [System.Diagnostics.Conditional("UNITY_EDITOR")]
   void RenderGizmos(ScriptableRenderContext renderContext, Camera camera, GizmoSubset gizmoSubset)
   {
-    if (UnityEditor.SceneView.currentDrawingSceneView?.drawGizmos ?? false)
+#if UNITY_EDITOR
+    if (UnityEditor.Handles.ShouldRenderGizmos())
     {
       renderContext.DrawGizmos(camera, gizmoSubset);
     }
+#endif
   }
 
   void RenderLighting(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
