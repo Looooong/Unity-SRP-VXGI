@@ -11,6 +11,11 @@
 
 - Added indirect lighting modifier.
 
+### Changed
+
+- Improved cone tracing direction selection.
+- Removed cone tracing bias.
+
 ### Fixed
 
 - Fixed the gizmos being drawn in Game View.

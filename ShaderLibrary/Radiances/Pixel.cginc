@@ -80,7 +80,7 @@
       float3 unit = Directions[i];
       float NdotL = dot(data.vecN, unit);
 
-      if (NdotL <= 0.0) continue;
+      if (NdotL < ConeDirectionThreshold) continue;
 
       float4 incoming = 0.0;
       float size = 1.0;
@@ -89,7 +89,7 @@
       for (
         float3 coordinate = apex + direction;
         incoming.a < 0.95 && TextureSDF(coordinate) > 0.0;
-        size *= 1.5, direction *= 1.5, coordinate = apex + direction
+        size *= 2.0, direction *= 2.0, coordinate = apex + direction
       ) {
         incoming += 0.5 * (1.0 - incoming.a) * SampleRadiance(coordinate, size);
       }
@@ -98,6 +98,6 @@
       cones++;
     }
 
-    return data.diffuseColor * radiance * 2.0 / cones;
+    return data.diffuseColor * radiance / cones;
   }
 #endif
