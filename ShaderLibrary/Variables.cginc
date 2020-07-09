@@ -11,6 +11,8 @@
   SamplerState linear_clamp_sampler;
   StructuredBuffer<LightSource> LightSources;
 
+  static float ConeDirectionThreshold = sin(atan(1.0/3.0));
+
   // Cone tracing direction for indirect diffuse calculations
   static float3 Directions[32] = {
     float3(+0.000000, +1.000000, +0.000000),
