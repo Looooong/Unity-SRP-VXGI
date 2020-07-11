@@ -2,6 +2,8 @@
 #pragma kernel CSAggregate
 #pragma kernel CSClear
 #pragma kernel CSRender
+#pragma kernel CSRender VXGI_CASCADES
+#pragma enable_d3d11_debug_symbols
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelLightingData.hlsl"
@@ -18,13 +20,10 @@ ConsumeStructuredBuffer<VoxelData> VoxelBuffer;
 [numthreads(4,4,4)]
 void CSAggregate(uint3 id : SV_DispatchThreadID)
 {
-  if (any(id >= Resolution)) return;
+  // if (any(id >= Resolution)) return;
 
-  // FIXME
-  // It looks stupid, due to a bug in HLSL to GLSL translator (case 1241093).
-  // This is an only workaround I can think of.
   uint rg = RadianceRG[id];
-  uint ba = RadianceBA.Load(id);
+  uint ba = RadianceBA[id];
   uint count = RadianceCount[id];
 
   if (count > 0u) {
@@ -49,7 +48,9 @@ void CSAggregate(uint3 id : SV_DispatchThreadID)
 [numthreads(4,4,4)]
 void CSClear(uint3 id : SV_DispatchThreadID)
 {
-  if (any(id >= Resolution)) return;
+  // if (any(id >= Resolution)) return;
+
+  // Target[id] = 0.0;
 
   RadianceRG[id] = 0u;
   RadianceBA[id] = 0u;
@@ -70,6 +71,11 @@ void CSRender(uint id : SV_DispatchThreadID)
   float4 color = data.GetColor();
   float3 emission = data.GetEmission();
 
+#ifdef VXGI_CASCADES
+  color = float4(mad(normal, 0.5, 0.5), 1.0);
+#else
+  position *= Resolution;
+
   VoxelLightingData lightingData;
   lightingData.color = color.rgb;
   lightingData.voxelPosition = position;
@@ -78,10 +84,43 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   color.rgb = emission + VoxelRadiance(lightingData);
   color.a = saturate(color.a);
+#endif
 
   uint4 intColor = (uint4)round(color * RADIANCE_PRECISION);
+  uint rg = intColor.r | intColor.g << 16;
+  uint ba = intColor.b | intColor.a << 16;
 
-  InterlockedAdd(RadianceRG[position], intColor.r | intColor.g << 16);
-  InterlockedAdd(RadianceBA[position], intColor.b | intColor.a << 16);
+#ifdef VXGI_CASCADES
+  for (int level = MinSampleLevel(position); level < VXGI_CascadesCount; level++) {
+    float3 uvw = mad(
+      position,
+      exp2(VXGI_CascadesCountMinusOne - level),
+      0.5 - exp2(VXGI_CascadesCountMinusOne - level - 1)
+    );
+    uvw = min(Resolution * uvw, Resolution - 0.000001);
+    uvw.z += level * Resolution;
+
+    [allow_uav_condition]
+    for (
+      int i = 0, count = RadianceCount[uvw], originalCount = -1;
+      i < 16 && count < 16;
+      i++, count = originalCount
+    ) {
+      InterlockedCompareExchange(RadianceCount[uvw], count, count + 1, originalCount);
+
+      if (count == originalCount)
+      {
+        InterlockedAdd(RadianceRG[uvw], rg);
+        InterlockedAdd(RadianceBA[uvw], ba);
+        break;
+      }
+    }
+  }
+#else
+  position = min(position, Resolution - 0.000001);
+
+  InterlockedAdd(RadianceRG[position], rg);
+  InterlockedAdd(RadianceBA[position], ba);
   InterlockedAdd(RadianceCount[position], 1);
+#endif
 }

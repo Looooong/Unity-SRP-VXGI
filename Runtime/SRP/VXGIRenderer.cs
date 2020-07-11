@@ -266,6 +266,8 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   void TriggerCameraEvent(ScriptableRenderContext renderContext, Camera camera, CameraEvent cameraEvent, VXGI vxgi) {
+    camera = camera.cameraType == CameraType.SceneView ? vxgi.Camera : camera;
+
     var commands = camera.GetCommandBuffers(cameraEvent);
 
     if (commands.Length == 0) return;

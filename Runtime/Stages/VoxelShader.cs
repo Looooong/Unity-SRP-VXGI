@@ -66,14 +66,14 @@ public class VoxelShader : System.IDisposable {
     ComputeClear();
     ComputeRender();
     ComputeAggregate();
+    // if (!_vxgi.CascadesEnabled) ComputeAggregate();
     Cleanup();
 
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
 
-  void Cleanup()
-  {
+  void Cleanup() {
     _command.BeginSample(sampleCleanup);
 
     _command.ReleaseTemporaryRT(ShaderIDs.RadianceBA);
@@ -93,7 +93,7 @@ public class VoxelShader : System.IDisposable {
     _command.DispatchCompute(compute, _kernelAggregate,
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsAggregate.x),
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsAggregate.y),
-      Mathf.CeilToInt((float)_vxgi.resolution / _threadsAggregate.z)
+      Mathf.CeilToInt((float)_vxgi.resolution / _threadsAggregate.z) * (_vxgi.CascadesEnabled ? _vxgi.CascadesCount : 1)
     );
 
     _command.EndSample(sampleComputeAggregate);
@@ -102,13 +102,15 @@ public class VoxelShader : System.IDisposable {
   void ComputeClear() {
     _command.BeginSample(sampleComputeClear);
 
+    if (_vxgi.CascadesEnabled) _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.Target, _vxgi.radiances[0]);
+
     _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.RadianceBA, ShaderIDs.RadianceBA);
     _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.RadianceRG, ShaderIDs.RadianceRG);
     _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.RadianceCount, ShaderIDs.RadianceCount);
     _command.DispatchCompute(compute, _kernelClear,
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.x),
       Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.y),
-      Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.z)
+      Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.z) * (_vxgi.CascadesEnabled ? _vxgi.CascadesCount : 1)
     );
 
     _command.EndSample(sampleComputeClear);
@@ -121,6 +123,7 @@ public class VoxelShader : System.IDisposable {
 
     _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);
     _command.SetComputeIntParam(compute, ShaderIDs.LightCount, _vxgi.lights.Count);
+    _command.SetComputeIntParam(compute, ShaderIDs.VXGI_CascadesCount, _vxgi.CascadesCount);
     _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.LightSources, _lightSources);
     _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.VoxelBuffer, _vxgi.voxelBuffer);
     _command.SetComputeMatrixParam(compute, ShaderIDs.VoxelToWorld, _vxgi.voxelToWorld);
@@ -129,8 +132,13 @@ public class VoxelShader : System.IDisposable {
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.RadianceRG, ShaderIDs.RadianceRG);
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.RadianceCount, ShaderIDs.RadianceCount);
 
-    for (var i = 0; i < 9; i++) {
-      _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Radiance[i], _vxgi.radiances[Mathf.Min(i, _vxgi.radiances.Length - 1)]);
+    if (_vxgi.CascadesEnabled) {
+      _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Target, _vxgi.radiances[0]);
+      _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Radiance[0], _vxgi.radiances[0]);
+    } else {
+      for (var i = 0; i < 9; i++) {
+        _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Radiance[i], _vxgi.radiances[Mathf.Min(i, _vxgi.radiances.Length - 1)]);
+      }
     }
 
     _command.CopyCounterValue(_vxgi.voxelBuffer, _arguments, 0);
@@ -140,12 +148,15 @@ public class VoxelShader : System.IDisposable {
     _command.EndSample(sampleComputeRender);
   }
 
-  void Setup()
-  {
+  void Setup() {
     _command.BeginSample(sampleSetup);
 
     UpdateNumThreads();
+    _kernelRender = _vxgi.CascadesEnabled ? 4 : 3;
     _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (int)_vxgi.resolution;
+
+    if (_vxgi.CascadesEnabled) _descriptor.volumeDepth *= _vxgi.cascadesCount;
+
     _command.GetTemporaryRT(ShaderIDs.RadianceCount, _descriptor);
     _command.GetTemporaryRT(ShaderIDs.RadianceBA, _descriptor);
     _command.GetTemporaryRT(ShaderIDs.RadianceRG, _descriptor);
@@ -154,8 +165,7 @@ public class VoxelShader : System.IDisposable {
   }
 
   [System.Diagnostics.Conditional("UNITY_EDITOR")]
-  void UpdateNumThreads()
-  {
+  void UpdateNumThreads() {
     _threadsAggregate = new NumThreads(compute, _kernelAggregate);
     _threadsClear = new NumThreads(compute, _kernelClear);
     _threadsTrace = new NumThreads(compute, _kernelRender);

@@ -18,7 +18,8 @@ Shader "Hidden/VXGI/Visualization"
       CGPROGRAM
       #pragma vertex vert
       #pragma fragment frag
-      #pragma multi_compile __ RADIANCE_POINT_SAMPLER
+      #pragma multi_compile _ RADIANCE_POINT_SAMPLER
+      #pragma multi_compile _ VXGI_CASCADES
 
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Utilities.cginc"
@@ -94,7 +95,11 @@ Shader "Hidden/VXGI/Visualization"
         half4 color = half4(0.0, 0.0, 0.0, 0.0);
 
         while ((view.z <= 2 * RayTracingStep) && (TextureSDF(coordinate) > -0.000001)) {
+#ifdef VXGI_CASCADES
+          half4 sample = SampleRadiance(coordinate, MipmapLevel);
+#else
           half4 sample = SampleRadiance(coordinate, MipmapSize);
+#endif
           color = sample + color * (1 - sample.a);
           view += unit;
           coordinate = mul(transpose(UNITY_MATRIX_IT_MV), float4(view, 1.0));

@@ -21,7 +21,11 @@
 
     void Initialize()
     {
+#ifdef VXGI_CASCADES
+      worldPosition = mad(voxelPosition, VXGI_VolumeSize, VXGI_VolumeMin);
+#else
       worldPosition = mul(VoxelToWorld, float4(voxelPosition, 1.0)).xyz;
+#endif
     }
 
     void Prepare(float3 lightDirection) {

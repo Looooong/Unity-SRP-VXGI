@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 [AddComponentMenu("Rendering/VXGI Mipmap Debug")]
 class VXGIMipmapDebug : MonoBehaviour {
   public bool usePointFilter = true;
-  [Range(1f, 9f)]
+  [Range(0f, 9f)]
   public float level = 1f;
   public float rayTracingStep = .05f;
 
@@ -22,11 +22,11 @@ class VXGIMipmapDebug : MonoBehaviour {
 
   void OnEnable() {
     _command = new CommandBuffer { name = "VXGI.Debug.Mipmap" };
-    _camera.AddCommandBuffer(CameraEvent.AfterEverything, _command);
+    _camera.AddCommandBuffer(CameraEvent.AfterImageEffects, _command);
   }
 
   void OnDisable() {
-    _camera.RemoveCommandBuffer(CameraEvent.AfterEverything, _command);
+    _camera.RemoveCommandBuffer(CameraEvent.AfterImageEffects, _command);
     _command.Dispose();
   }
 
@@ -43,7 +43,11 @@ class VXGIMipmapDebug : MonoBehaviour {
       _command.DisableShaderKeyword("RADIANCE_POINT_SAMPLER");
     }
 
-    _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
+    if (_vxgi.CascadesEnabled) {
+      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.cascadesCount));
+    } else {
+      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
+    }
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, rayTracingStep);
     _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);

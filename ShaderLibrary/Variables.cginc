@@ -3,6 +3,10 @@
 
   #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/LightSource.hlsl"
 
+  float VXGI_VolumeExtent;
+  float VXGI_VolumeSize;
+  float3 VXGI_VolumeCenter;
+  int VXGI_CascadesCount;
   uint Resolution;
   uint LightCount;
   float4x4 VoxelToWorld;
@@ -12,6 +16,10 @@
   StructuredBuffer<LightSource> LightSources;
 
   static float ConeDirectionThreshold = sin(atan(1.0/3.0));
+  static float VXGI_CascadesCountRcp = 1.0 / VXGI_CascadesCount;
+  static float VXGI_VolumeSizeRcp = 1.0 / VXGI_VolumeSize;
+  static float3 VXGI_VolumeMin = VXGI_VolumeCenter - VXGI_VolumeExtent;
+  static int VXGI_CascadesCountMinusOne = VXGI_CascadesCount - 1;
 
   // Cone tracing direction for indirect diffuse calculations
   static float3 Directions[32] = {

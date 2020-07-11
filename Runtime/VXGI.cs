@@ -9,8 +9,18 @@ using UnityEngine.Rendering;
 public class VXGI : MonoBehaviour {
   public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
-  public enum Resolution { Low = 32, Medium = 64, High = 128, VeryHigh = 256 }
+  public enum Resolution {
+    [InspectorName("Low (32^3)")] Low = 32,
+    [InspectorName("Medium (64^3)")] Medium = 64,
+    [InspectorName("High (128^3)")] High = 128,
+    [InspectorName("Very High (256^3)")] VeryHigh = 256
+  }
+  public const int MaxCascadesCount = 8;
+  public const int MinCascadesCount = 4;
 
+  public bool cascadesEnabled;
+  [Range(MinCascadesCount, MaxCascadesCount)]
+  public int cascadesCount = MinCascadesCount;
   public Vector3 center;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
   public Resolution resolution = Resolution.Medium;
@@ -34,18 +44,14 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public bool resolutionPlusOne {
     get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
   }
-  public float bufferScale {
-    get { return 64f / (_resolution - _resolution % 2); }
-  }
+  public float BufferScale => CascadesEnabled ? 64f * CascadesCount : 64f / (_resolution - _resolution % 2);
   public float voxelSize {
     get { return bound / (_resolution - _resolution % 2); }
   }
   public int volume {
     get { return _resolution * _resolution * _resolution; }
   }
-  public new Camera camera {
-    get { return _camera; }
-  }
+  public Camera Camera => _camera;
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
   }
@@ -83,6 +89,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     get { return _voxelizer; }
   }
 
+  internal bool CascadesEnabled { get; private set; }
+  internal int CascadesCount { get; private set; }
+
   int _resolution = 0;
   float _previousTrace = 0f;
   Camera _camera;
@@ -104,7 +113,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   public void Render(ScriptableRenderContext renderContext, Camera camera, VXGIRenderer renderer) {
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreRender", Camera.onPreRender);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPreRender", Camera.onPreRender);
 
     _command.BeginSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
@@ -137,7 +146,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     SetupShader(renderContext);
 
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPreCull", Camera.onPreCull);
 
     renderer.RenderDeferred(renderContext, camera, this);
 
@@ -145,7 +154,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPostRender", Camera.onPostRender);
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -159,7 +168,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     _voxelizer.Voxelize(renderContext, renderer);
     _voxelShader.Render(renderContext);
-    _mipmapper.Filter(renderContext);
+
+    if (!CascadesEnabled) _mipmapper.Filter(renderContext);
 
     _lastVoxelSpaceCenter = voxelSpaceCenter;
   }
@@ -170,18 +180,28 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _command.SetGlobalBuffer(ShaderIDs.LightSources, _lightSources);
     _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
     _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
+    _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * bound);
+    _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, bound);
     _command.SetGlobalInt(ShaderIDs.LightCount, _lights.Count);
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
+    _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, CascadesCount);
     _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
+    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, center);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
   #endregion
 
   #region Messages
-  void OnDrawGizmosSelected() {
-    Gizmos.color = new Color(0, 0, 1, .2f);
+  void OnDrawGizmos() {
+    Gizmos.color = Color.green;
     Gizmos.DrawWireCube(voxelSpaceCenter, Vector3.one * bound);
+
+    if (CascadesEnabled) {
+      for (int i = 1; i < CascadesCount; i++) {
+        Gizmos.DrawWireCube(voxelSpaceCenter, Vector3.one * bound / Mathf.Pow(2, i));
+      }
+    }
   }
 
   void OnEnable() {
@@ -217,7 +237,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   #region Buffers
   void CreateBuffers() {
-    _voxelBuffer = new ComputeBuffer((int)(bufferScale * volume), VoxelData.size, ComputeBufferType.Append);
+    _voxelBuffer = new ComputeBuffer((int)(BufferScale * volume), VoxelData.size, ComputeBufferType.Append);
   }
 
   void DisposeBuffers() {
@@ -242,22 +262,34 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void CreateTextures() {
-    int resolutionModifier = _resolution % 2;
+    if (CascadesEnabled) {
+      _radianceDescriptor.height = _radianceDescriptor.width = _resolution;
+      _radianceDescriptor.volumeDepth = CascadesCount * _resolution;
+      _radiances = new[] { new RenderTexture(_radianceDescriptor) };
+      _radiances[0].Create();
 
-    _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2f)];
+      Shader.EnableKeyword("VXGI_CASCADES");
+      Shader.SetGlobalTexture(ShaderIDs.Radiance[0], radiances[0]);
+    } else {
+      int resolutionModifier = _resolution % 2;
 
-    for (
-      int i = 0, currentResolution = _resolution;
-      i < _radiances.Length;
-      i++, currentResolution = (currentResolution - resolutionModifier) / 2 + resolutionModifier
-    ) {
-      _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
-      _radiances[i] = new RenderTexture(_radianceDescriptor);
-      _radiances[i].Create();
-    }
+      _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2f)];
 
-    for (int i = 0; i < 9; i++) {
-      Shader.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
+      for (
+        int i = 0, currentResolution = _resolution;
+        i < _radiances.Length;
+        i++, currentResolution = (currentResolution - resolutionModifier) / 2 + resolutionModifier
+      ) {
+        _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
+        _radiances[i] = new RenderTexture(_radianceDescriptor);
+        _radiances[i].Create();
+      }
+
+      Shader.DisableKeyword("VXGI_CASCADES");
+
+      for (int i = 0; i < 9; i++) {
+        Shader.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
+      }
     }
   }
 
@@ -276,12 +308,30 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   #endregion
 
   void UpdateResolution() {
+    bool resize = false;
+
+    if (CascadesEnabled != cascadesEnabled) {
+      CascadesEnabled = cascadesEnabled;
+      resize = true;
+    }
+
+    cascadesCount = Mathf.Clamp(cascadesCount, MinCascadesCount, MaxCascadesCount);
+
+    if (CascadesCount != cascadesCount && CascadesEnabled) {
+      CascadesCount = cascadesCount;
+      resize = true;
+    }
+
     int newResolution = (int)resolution;
 
-    if (resolutionPlusOne) newResolution++;
+    if (resolutionPlusOne && !CascadesEnabled) newResolution++;
 
     if (_resolution != newResolution) {
       _resolution = newResolution;
+      resize = true;
+    }
+
+    if (resize) {
       ResizeBuffers();
       ResizeTextures();
     }

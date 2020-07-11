@@ -38,14 +38,14 @@ public class Voxelizer : System.IDisposable {
 
   public void Voxelize(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
     if (!_camera.TryGetCullingParameters(out _cullingParameters)) return;
-  
+
     var cullingResults = renderContext.Cull(ref _cullingParameters);
 
     _vxgi.lights.Clear();
 
     foreach (var light in cullingResults.visibleLights) {
       if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        _vxgi.lights.Add(new LightSource(light, _vxgi.worldToVoxel));
+        _vxgi.lights.Add(new LightSource(light, _vxgi));
       }
     }
 
@@ -122,9 +122,14 @@ public class Voxelizer : System.IDisposable {
       ResizeCamera();
     }
 
-    if (_resolution != (int)_vxgi.resolution) {
-      _resolution = (int)_vxgi.resolution;
-      _cameraDescriptor.height = _cameraDescriptor.width = _resolution;
+    int newResolution = (int)_vxgi.resolution;
+
+    if (_vxgi.CascadesEnabled) {
+      for (int i = 0; i < _vxgi.CascadesCount; i++) newResolution *= 2;
+    }
+
+    if (_resolution != newResolution) {
+      _cameraDescriptor.height = _cameraDescriptor.width = _resolution = newResolution;
     }
 
     _camera.transform.position = _vxgi.voxelSpaceCenter - Vector3.forward * _camera.orthographicSize;

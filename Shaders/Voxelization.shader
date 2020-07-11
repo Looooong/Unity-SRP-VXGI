@@ -18,6 +18,7 @@ Shader "Hidden/VXGI/Voxelization"
       #pragma geometry geom
       #pragma fragment frag
       #pragma shader_feature _EMISSION
+      #pragma shader_feature_local _METALLICGLOSSMAP
 
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
@@ -38,8 +39,6 @@ Shader "Hidden/VXGI/Voxelization"
       sampler2D _MetallicGlossMap;
       sampler2D _EmissionMap;
 
-      // Map depth [0, 1] to Z coordinate [0, Resolution)
-      static float DepthResolution = Resolution * 0.99999999;
       float4x4 VoxelToProjection;
 
       AppendStructuredBuffer<VoxelData> VoxelBuffer;
@@ -159,9 +158,11 @@ Shader "Hidden/VXGI/Voxelization"
           float3 emission = 0.0;
         #endif
 
+        float3 voxelPosition = float3(i.position.xy / Resolution, i.position.z);
+
         VoxelData d;
         d.Initialize();
-        d.SetPosition(RestoreAxis(float3(i.position.xy, i.position.z * DepthResolution), i.axis));
+        d.SetPosition(RestoreAxis(voxelPosition, i.axis));
         d.SetNormal(i.normal);
         d.SetColor(mad(-0.5, metallic, 1.0) * _Color * tex2Dlod(_MainTex, float4(i.uv, 0.0, 0.0)));
         d.SetEmission(emission + ShadeSH9(float4(i.normal, 1.0)));

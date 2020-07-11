@@ -1,15 +1,15 @@
 {
     "name": "Looooong.SRP.VXGI.Runtime",
     "references": [
-        "Unity.Postprocessing.Runtime",
-        "Looooong.SRP.VXGI.Runtime.ShaderStructs"
+        "Unity.Postprocessing.Runtime"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": []
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }
