@@ -186,7 +186,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
     _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, CascadesCount);
     _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
-    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, center);
+    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, voxelSpaceCenter);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }

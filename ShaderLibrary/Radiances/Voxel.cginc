@@ -1,5 +1,5 @@
-#ifndef VXGI_RADIANCES_VOXEL
-#define VXGI_RADIANCES_VOXEL
+#ifndef VXGI_SHADERLIBRARY_RADIANCES_VOXEL
+#define VXGI_SHADERLIBRARY_RADIANCES_VOXEL
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Utilities.cginc"
@@ -37,7 +37,7 @@
       if (notInRange || (spotFalloff <= 0.0) || (data.NdotL <= 0.0)) continue;
 
       radiance +=
-        VoxelVisibility(mad(voxelSize, data.vecN, data.voxelPosition), lightSource.voxelPosition)
+        VoxelVisibility(mad(2.0 * voxelSize, data.vecN, data.voxelPosition), lightSource.voxelPosition)
         * data.NdotL
         * spotFalloff
         * lightSource.Attenuation(localPosition);
@@ -52,7 +52,7 @@
 
     float minLevel = MinSampleLevel(data.voxelPosition);
     float voxelSize = VoxelSize(minLevel);
-    float3 apex = mad(voxelSize, data.vecN, data.voxelPosition);
+    float3 apex = mad(2.0 * voxelSize, data.vecN, data.voxelPosition);
     float3 radiance = 0.0;
     uint cones = 0;
 
@@ -155,4 +155,4 @@ float3 VoxelRadiance(VoxelLightingData data)
 {
   return data.color * (DirectVoxelRadiance(data) + IndirectVoxelRadiance(data));
 }
-#endif
+#endif // VXGI_SHADERLIBRARY_RADIANCES_VOXEL

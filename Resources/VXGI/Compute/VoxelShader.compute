@@ -1,9 +1,11 @@
-﻿#pragma kernel CSAggregate D3D11
-#pragma kernel CSAggregate
+﻿#pragma kernel CSAggregate
+#pragma kernel CSAggregate D3D11
+#pragma kernel CSAggregate VXGI_CASCADES
+#pragma kernel CSAggregate D3D11 VXGI_CASCADES
 #pragma kernel CSClear
+#pragma kernel CSClear VXGI_CASCADES
 #pragma kernel CSRender
 #pragma kernel CSRender VXGI_CASCADES
-#pragma enable_d3d11_debug_symbols
 
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelLightingData.hlsl"
@@ -20,7 +22,7 @@ ConsumeStructuredBuffer<VoxelData> VoxelBuffer;
 [numthreads(4,4,4)]
 void CSAggregate(uint3 id : SV_DispatchThreadID)
 {
-  // if (any(id >= Resolution)) return;
+  if (any(id >= VXGI_TexelResolution)) return;
 
   uint rg = RadianceRG[id];
   uint ba = RadianceBA[id];
@@ -48,9 +50,7 @@ void CSAggregate(uint3 id : SV_DispatchThreadID)
 [numthreads(4,4,4)]
 void CSClear(uint3 id : SV_DispatchThreadID)
 {
-  // if (any(id >= Resolution)) return;
-
-  // Target[id] = 0.0;
+  if (any(id >= VXGI_TexelResolution)) return;
 
   RadianceRG[id] = 0u;
   RadianceBA[id] = 0u;

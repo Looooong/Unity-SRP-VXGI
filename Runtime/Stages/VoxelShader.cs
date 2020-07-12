@@ -38,13 +38,7 @@ public class VoxelShader : System.IDisposable {
     _arguments.SetData(new int[] { 1, 1, 1 });
     _lightSources = new ComputeBuffer(64, LightSource.size);
 
-    _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 0 : 1;
-    _kernelClear = compute.FindKernel("CSClear");
-    _kernelRender = compute.FindKernel("CSRender");
-
-    _threadsAggregate = new NumThreads(compute, _kernelAggregate);
-    _threadsClear = new NumThreads(compute, _kernelClear);
-    _threadsTrace = new NumThreads(compute, _kernelRender);
+    ReloadKernels();
 
     _descriptor = new RenderTextureDescriptor() {
       colorFormat = RenderTextureFormat.RInt,
@@ -66,7 +60,6 @@ public class VoxelShader : System.IDisposable {
     ComputeClear();
     ComputeRender();
     ComputeAggregate();
-    // if (!_vxgi.CascadesEnabled) ComputeAggregate();
     Cleanup();
 
     renderContext.ExecuteCommandBuffer(_command);
@@ -121,6 +114,8 @@ public class VoxelShader : System.IDisposable {
 
     _lightSources.SetData(_vxgi.lights);
 
+    _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeExtent, .5f * _vxgi.bound);
+    _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeSize, _vxgi.bound);
     _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);
     _command.SetComputeIntParam(compute, ShaderIDs.LightCount, _vxgi.lights.Count);
     _command.SetComputeIntParam(compute, ShaderIDs.VXGI_CascadesCount, _vxgi.CascadesCount);
@@ -131,6 +126,7 @@ public class VoxelShader : System.IDisposable {
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.RadianceBA, ShaderIDs.RadianceBA);
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.RadianceRG, ShaderIDs.RadianceRG);
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.RadianceCount, ShaderIDs.RadianceCount);
+    _command.SetComputeVectorParam(compute, ShaderIDs.VXGI_VolumeCenter, _vxgi.voxelSpaceCenter);
 
     if (_vxgi.CascadesEnabled) {
       _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Target, _vxgi.radiances[0]);
@@ -151,8 +147,10 @@ public class VoxelShader : System.IDisposable {
   void Setup() {
     _command.BeginSample(sampleSetup);
 
-    UpdateNumThreads();
-    _kernelRender = _vxgi.CascadesEnabled ? 4 : 3;
+#if UNITY_EDITOR
+    ReloadKernels();
+#endif
+
     _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (int)_vxgi.resolution;
 
     if (_vxgi.CascadesEnabled) _descriptor.volumeDepth *= _vxgi.cascadesCount;
@@ -164,8 +162,17 @@ public class VoxelShader : System.IDisposable {
     _command.EndSample(sampleSetup);
   }
 
-  [System.Diagnostics.Conditional("UNITY_EDITOR")]
-  void UpdateNumThreads() {
+  void ReloadKernels() {
+    if ( _vxgi.CascadesEnabled) {
+      _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 3 : 2;
+      _kernelClear = 5;
+      _kernelRender = 7;
+    } else {
+      _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 1 : 0;
+      _kernelClear = 4;
+      _kernelRender = 6;
+    }
+
     _threadsAggregate = new NumThreads(compute, _kernelAggregate);
     _threadsClear = new NumThreads(compute, _kernelClear);
     _threadsTrace = new NumThreads(compute, _kernelRender);

@@ -32,18 +32,17 @@
       exp2(VXGI_CascadesCountMinusOne - level),
       0.5 - exp2(VXGI_CascadesCountMinusTwo - level)
     );
+    position.z = clamp(position.z, 0.5 * VXGI_VoxelResolutionRcp, 1.0 - 0.5 * VXGI_VoxelResolutionRcp);
     position.z += level;
     position.z /= VXGI_CascadesCount;
     return position;
   }
 
-  // TODO: do something about the voxel region between 2 adjacent levels
   float SampleOcclusion(float3 position) {
     int level = MinSampleLevel(position);
     return Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level), 0.0).a;
   }
 
-  // TODO: do something about the voxel region between 2 adjacent levels
   float4 SampleRadiance(float3 position, int level) {
     level = clamp(level, MinSampleLevel(position), VXGI_CascadesCountMinusOne);
     return Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level), 0.0);

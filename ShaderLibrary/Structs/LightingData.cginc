@@ -35,7 +35,11 @@
 
     void Initialize()
     {
+#ifdef VXGI_CASCADES
+      voxelPosition = (worldPosition - VXGI_VolumeMin) / VXGI_VolumeSize;
+#else
       voxelPosition = mul(WorldToVoxel, float4(worldPosition, 1.0)).xyz;
+#endif
 
       perceptualRoughness = 1.0 - glossiness;
       roughness = 1.0 - glossiness * glossiness;
