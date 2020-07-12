@@ -19,25 +19,27 @@
     return max(max(level.x, level.y), max(level.z, 0.0));
   }
 
+  float3 TransformVoxelToTexelPosition(float3 position, int level) {
+    position = mad(
+      position,
+      exp2(VXGI_CascadesCountMinusOne - level),
+      0.5 - exp2(VXGI_CascadesCountMinusTwo - level)
+    );
+    position.z += level;
+    position.z /= VXGI_CascadesCount;
+    return position;
+  }
+
   // TODO: do something about the voxel region between 2 adjacent levels
   float SampleOcclusion(float3 position) {
-    // int level = MinSampleLevel(position);
-    // position.z += level;
-    // position.z *= VXGI_CascadesCountRcp;
-    return Radiance0.SampleLevel(RADIANCE_SAMPLER, position, 0.0).a;
+    int level = MinSampleLevel(position);
+    return Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level), 0.0).a;
   }
 
   // TODO: do something about the voxel region between 2 adjacent levels
   float4 SampleRadiance(float3 position, int level) {
     level = clamp(level, MinSampleLevel(position), VXGI_CascadesCountMinusOne);
-    position = mad(
-      position,
-      exp2(VXGI_CascadesCountMinusOne - level),
-      0.5 - exp2(VXGI_CascadesCountMinusOne - level - 1)
-    );
-    position.z += level;
-    position.z /= VXGI_CascadesCount;
-    return Radiance0.SampleLevel(RADIANCE_SAMPLER, position, 0.0);
+    return Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level), 0.0);
   }
 #else
   #define LERP_RADIANCE(level, position, fraction) lerp(SAMPLE_RADIANCE(level - 1, position), SAMPLE_RADIANCE(level, position), fraction)

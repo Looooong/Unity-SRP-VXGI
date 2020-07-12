@@ -18,8 +18,11 @@
   static float ConeDirectionThreshold = sin(atan(1.0/3.0));
   static float VXGI_CascadesCountRcp = 1.0 / VXGI_CascadesCount;
   static float VXGI_VolumeSizeRcp = 1.0 / VXGI_VolumeSize;
+  static float3 VXGI_TexelResolution = float3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
+  static float3 VXGI_TexelResolutionMinus = VXGI_TexelResolution - 0.000001;
   static float3 VXGI_VolumeMin = VXGI_VolumeCenter - VXGI_VolumeExtent;
   static int VXGI_CascadesCountMinusOne = VXGI_CascadesCount - 1;
+  static int VXGI_CascadesCountMinusTwo = VXGI_CascadesCount - 2;
 
   // Cone tracing direction for indirect diffuse calculations
   static float3 Directions[32] = {

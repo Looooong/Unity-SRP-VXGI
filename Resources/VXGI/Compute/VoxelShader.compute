@@ -71,10 +71,9 @@ void CSRender(uint id : SV_DispatchThreadID)
   float4 color = data.GetColor();
   float3 emission = data.GetEmission();
 
-#ifdef VXGI_CASCADES
-  color = float4(mad(normal, 0.5, 0.5), 1.0);
-#else
+#ifndef VXGI_CASCADES
   position *= Resolution;
+#endif
 
   VoxelLightingData lightingData;
   lightingData.color = color.rgb;
@@ -84,7 +83,6 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   color.rgb = emission + VoxelRadiance(lightingData);
   color.a = saturate(color.a);
-#endif
 
   uint4 intColor = (uint4)round(color * RADIANCE_PRECISION);
   uint rg = intColor.r | intColor.g << 16;
@@ -92,13 +90,8 @@ void CSRender(uint id : SV_DispatchThreadID)
 
 #ifdef VXGI_CASCADES
   for (int level = MinSampleLevel(position); level < VXGI_CascadesCount; level++) {
-    float3 uvw = mad(
-      position,
-      exp2(VXGI_CascadesCountMinusOne - level),
-      0.5 - exp2(VXGI_CascadesCountMinusOne - level - 1)
-    );
-    uvw = min(Resolution * uvw, Resolution - 0.000001);
-    uvw.z += level * Resolution;
+    float3 uvw = TransformVoxelToTexelPosition(position, level);
+    uvw = min(VXGI_TexelResolution * uvw, VXGI_TexelResolutionMinus);
 
     [allow_uav_condition]
     for (
