@@ -12,11 +12,18 @@
 #ifdef VXGI_CASCADES
   Texture3D Radiance0;
 
-  int MinSampleLevel(float3 position)
-  {
+  int MinSampleLevel(float3 position) {
     position = mad(position, 2.0, -1.0);
     int3 level = VXGI_CascadesCountMinusOne + ceil(log2(max(abs(position), 0.000001)));
     return max(max(level.x, level.y), max(level.z, 0.0));
+  }
+
+  float HalfVoxelSize(int level) {
+    return exp2(level - VXGI_CascadesCount) / Resolution;
+  }
+
+  float VoxelSize(int level) {
+    return exp2(level - VXGI_CascadesCountMinusOne) / Resolution;
   }
 
   float3 TransformVoxelToTexelPosition(float3 position, int level) {

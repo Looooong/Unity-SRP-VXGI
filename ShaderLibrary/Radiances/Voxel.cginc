@@ -10,6 +10,8 @@
 #ifdef VXGI_CASCADES
   float3 DirectVoxelRadiance(VoxelLightingData data)
   {
+    float level = MinSampleLevel(data.voxelPosition);
+    float voxelSize = VoxelSize(level);
     float3 radiance = 0.0;
 
     for (uint i = 0; i < LightCount; i++) {
@@ -35,7 +37,7 @@
       if (notInRange || (spotFalloff <= 0.0) || (data.NdotL <= 0.0)) continue;
 
       radiance +=
-        VoxelVisibility(data.voxelPosition + VXGI_VolumeSizeRcp * data.vecL / data.NdotL, lightSource.voxelPosition + normalize(localPosition))
+        VoxelVisibility(mad(voxelSize, data.vecN, data.voxelPosition), lightSource.voxelPosition)
         * data.NdotL
         * spotFalloff
         * lightSource.Attenuation(localPosition);
@@ -48,7 +50,9 @@
   {
     if (TextureSDF(data.voxelPosition) < 0.0) return 0.0;
 
-    float3 apex = mad(0.5 * VXGI_VolumeSizeRcp, data.vecN, data.voxelPosition);
+    float minLevel = MinSampleLevel(data.voxelPosition);
+    float voxelSize = VoxelSize(minLevel);
+    float3 apex = mad(voxelSize, data.vecN, data.voxelPosition);
     float3 radiance = 0.0;
     uint cones = 0;
 
@@ -58,8 +62,8 @@
 
       if (NdotL < ConeDirectionThreshold) continue;
 
-      int level = MinSampleLevel(data.voxelPosition);
-      float3 relativeSamplePosition = 1.5 * direction * pow(2, level) * VXGI_VolumeSizeRcp;
+      float level = minLevel;
+      float3 relativeSamplePosition = 1.5 * direction * voxelSize;
       float4 incoming = 0.0;
 
       for (
