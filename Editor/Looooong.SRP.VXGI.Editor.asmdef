@@ -1,9 +1,11 @@
 {
-    "name": "Looooong.SRP.VXGI.Runtime",
+    "name": "Looooong.SRP.VXGI.Editor",
     "references": [
-        "Unity.Postprocessing.Runtime"
+        "GUID:2518aed04e27c9a489552a3a49b8243f"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

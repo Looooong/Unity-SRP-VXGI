@@ -9,27 +9,43 @@ using UnityEngine.Rendering;
 public class VXGI : MonoBehaviour {
   public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
-  public enum Resolution { Low = 32, Medium = 64, High = 128, VeryHigh = 256 }
+  public enum Resolution {
+    [InspectorName("Low (32^3)")] Low = 32,
+    [InspectorName("Medium (64^3)")] Medium = 64,
+    [InspectorName("High (128^3)")] High = 128,
+    [InspectorName("VeryHigh (256^3)")] VeryHigh = 256
+  }
 
+  [Header("Voxel Volume")]
+  [Tooltip("Make the voxel volume center follow the camera position.")]
+  public bool followCamera = false;
+  [Tooltip("The center of the voxel volume in World Space")]
   public Vector3 center;
-  public AntiAliasing antiAliasing = AntiAliasing.X1;
+  [Min(0.001f), Tooltip("The size of the voxel volume in World Space.")]
+  public float bound = 10f;
+  [Tooltip("The resolution of the voxel volume.")]
   public Resolution resolution = Resolution.Medium;
+  [Tooltip("The anti-aliasing level of the voxelization process.")]
+  public AntiAliasing antiAliasing = AntiAliasing.X1;
   [Tooltip(
-@"Box: fast, 2^n voxel resolution.
+@"Specify the method to generate the voxel mipmap volume:
+Box: fast, 2^n voxel resolution.
 Gaussian 3x3x3: fast, 2^n+1 voxel resolution (recommended).
 Gaussian 4x4x4: slow, 2^n voxel resolution."
   )]
-  public Mipmapper.Mode mipmapFilterMode = Mipmapper.Mode.Gaussian3x3x3;
+  public Mipmapper.Mode mipmapFilterMode = Mipmapper.Mode.Box;
+  [Tooltip("Limit the voxel volume refresh rate.")]
+  public bool limitRefreshRate = false;
+  [Min(0f), Tooltip("The target refresh rate of the voxel volume.")]
+  public float refreshRate = 30f;
+
+  [Header("Rendering")]
+  [Min(0f), Tooltip("How strong the diffuse cone tracing can affect the scene.")]
   public float indirectDiffuseModifier = 1f;
+  [Min(0f), Tooltip("How strong the specular cone tracing can affect the scene.")]
   public float indirectSpecularModifier = 1f;
-  [Range(.1f, 1f)]
+  [Range(.1f, 1f), Tooltip("Downscale the diffuse cone tracing pass.")]
   public float diffuseResolutionScale = 1f;
-  [Range(1f, 100f)]
-  public float bound = 10f;
-  public bool throttleTracing = false;
-  [Range(1f, 100f)]
-  public float tracingRate = 10f;
-  public bool followCamera = false;
 
   public bool resolutionPlusOne {
     get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
@@ -43,9 +59,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public int volume {
     get { return _resolution * _resolution * _resolution; }
   }
-  public new Camera camera {
-    get { return _camera; }
-  }
+  public Camera Camera { get; private set; }
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
   }
@@ -84,8 +98,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   int _resolution = 0;
-  float _previousTrace = 0f;
-  Camera _camera;
+  float _previousRefresh = 0f;
   CommandBuffer _command;
   ComputeBuffer _lightSources;
   ComputeBuffer _voxelBuffer;
@@ -100,11 +113,11 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   #region Rendering
   public void Render(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
-    Render(renderContext, _camera, renderer);
+    Render(renderContext, Camera, renderer);
   }
 
   public void Render(ScriptableRenderContext renderContext, Camera camera, VXGIRenderer renderer) {
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreRender", Camera.onPreRender);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPreRender", Camera.onPreRender);
 
     _command.BeginSample(_command.name);
     renderContext.ExecuteCommandBuffer(_command);
@@ -112,16 +125,11 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     UpdateResolution();
 
-    float time = Time.unscaledTime;
-    bool tracingThrottled = throttleTracing;
+    var time = Time.realtimeSinceStartup;
 
-    if (tracingThrottled) {
-      if (_previousTrace + 1f / tracingRate < time) {
-        _previousTrace = time;
+    if (!limitRefreshRate || (_previousRefresh + 1f / refreshRate < time)) {
+      _previousRefresh = time;
 
-        PrePass(renderContext, renderer);
-      }
-    } else {
       PrePass(renderContext, renderer);
     }
 
@@ -137,7 +145,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     SetupShader(renderContext);
 
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPreCull", Camera.onPreCull);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPreCull", Camera.onPreCull);
 
     renderer.RenderDeferred(renderContext, camera, this);
 
@@ -145,7 +153,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    VXGIRenderPipeline.TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
+    VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPostRender", Camera.onPostRender);
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -187,7 +195,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   void OnEnable() {
     _resolution = (int)resolution;
 
-    _camera = GetComponent<Camera>();
+    Camera = GetComponent<Camera>();
     _command = new CommandBuffer { name = "VXGI.MonoBehaviour" };
     _lights = new List<LightSource>(64);
     _lightSources = new ComputeBuffer(64, LightSource.size);

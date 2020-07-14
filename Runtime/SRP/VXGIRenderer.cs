@@ -170,11 +170,9 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   [System.Diagnostics.Conditional("UNITY_EDITOR")]
-  void RenderGizmos(ScriptableRenderContext renderContext, Camera camera, GizmoSubset gizmoSubset)
-  {
+  void RenderGizmos(ScriptableRenderContext renderContext, Camera camera, GizmoSubset gizmoSubset) {
 #if UNITY_EDITOR
-    if (UnityEditor.Handles.ShouldRenderGizmos())
-    {
+    if (UnityEditor.Handles.ShouldRenderGizmos()) {
       renderContext.DrawGizmos(camera, gizmoSubset);
     }
 #endif
@@ -266,6 +264,10 @@ public class VXGIRenderer : System.IDisposable {
   }
 
   void TriggerCameraEvent(ScriptableRenderContext renderContext, Camera camera, CameraEvent cameraEvent, VXGI vxgi) {
+#if UNITY_EDITOR
+    camera = camera.cameraType == CameraType.SceneView ? vxgi.Camera : camera;
+#endif
+
     var commands = camera.GetCommandBuffers(cameraEvent);
 
     if (commands.Length == 0) return;
