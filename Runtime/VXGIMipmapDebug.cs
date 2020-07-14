@@ -5,11 +5,12 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(Camera))]
 [RequireComponent(typeof(VXGI))]
 [AddComponentMenu("Rendering/VXGI Mipmap Debug")]
-class VXGIMipmapDebug : MonoBehaviour {
-  public bool usePointFilter = true;
+public class VXGIMipmapDebug : MonoBehaviour {
   [Range(1f, 9f)]
-  public float level = 1f;
+  public float mipmapLevel = 1f;
+  [Tooltip("How big is a step when ray tracing through the voxel volume.")]
   public float rayTracingStep = .05f;
+  public FilterMode filterMode = FilterMode.Point;
 
   Camera _camera;
   CommandBuffer _command;
@@ -37,13 +38,13 @@ class VXGIMipmapDebug : MonoBehaviour {
 
     var transform = Matrix4x4.TRS(_vxgi.origin, Quaternion.identity, Vector3.one * _vxgi.bound);
 
-    if (usePointFilter) {
+    if (filterMode == FilterMode.Point) {
       _command.EnableShaderKeyword("RADIANCE_POINT_SAMPLER");
     } else {
       _command.DisableShaderKeyword("RADIANCE_POINT_SAMPLER");
     }
 
-    _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
+    _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(mipmapLevel, _vxgi.radiances.Length));
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, rayTracingStep);
     _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
