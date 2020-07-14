@@ -71,7 +71,36 @@ void CSRender(uint id : SV_DispatchThreadID)
   float4 color = data.GetColor();
   float3 emission = data.GetEmission();
 
-#ifndef VXGI_CASCADES
+#ifdef VXGI_CASCADES
+  bool render = false;
+  bool update[8];
+  int minLevel = MinSampleLevel(position);
+  int level;
+
+  for (level = minLevel; level < VXGI_CascadesCount; level++) {
+    float3 uvw = TransformVoxelToTexelPosition(position, level);
+    uvw = min(VXGI_TexelResolution * uvw, VXGI_TexelResolutionMinus);
+    update[level] = false;
+
+    [allow_uav_condition]
+    for (
+      int i = 0, count = RadianceCount[uvw], originalCount = -1;
+      i < 16 && count < 16;
+      i++, count = originalCount
+    ) {
+      InterlockedCompareExchange(RadianceCount[uvw], count, count + 1, originalCount);
+
+      if (count == originalCount)
+      {
+        update[level] = true;
+        render = true;
+        break;
+      }
+    }
+  }
+
+  if (!render) return;
+#else
   position *= Resolution;
 #endif
 
@@ -89,24 +118,14 @@ void CSRender(uint id : SV_DispatchThreadID)
   uint ba = intColor.b | intColor.a << 16;
 
 #ifdef VXGI_CASCADES
-  for (int level = MinSampleLevel(position); level < VXGI_CascadesCount; level++) {
+  for (level = minLevel; level < VXGI_CascadesCount; level++) {
     float3 uvw = TransformVoxelToTexelPosition(position, level);
     uvw = min(VXGI_TexelResolution * uvw, VXGI_TexelResolutionMinus);
 
-    [allow_uav_condition]
-    for (
-      int i = 0, count = RadianceCount[uvw], originalCount = -1;
-      i < 16 && count < 16;
-      i++, count = originalCount
-    ) {
-      InterlockedCompareExchange(RadianceCount[uvw], count, count + 1, originalCount);
-
-      if (count == originalCount)
-      {
-        InterlockedAdd(RadianceRG[uvw], rg);
-        InterlockedAdd(RadianceBA[uvw], ba);
-        break;
-      }
+    if (update[level])
+    {
+      InterlockedAdd(RadianceRG[uvw], rg);
+      InterlockedAdd(RadianceBA[uvw], ba);
     }
   }
 #else

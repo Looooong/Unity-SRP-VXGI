@@ -24,9 +24,9 @@
   static int VXGI_CascadesCountMinusTwo = VXGI_CascadesCount - 2;
 
 #ifdef VXGI_CASCADES
-  static float3 VXGI_TexelResolution = float3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
+  static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
 #else
-  static float3 VXGI_TexelResolution = Resolution;
+  static uint3 VXGI_TexelResolution = Resolution;
 #endif
 
   static float3 VXGI_TexelResolutionMinus = VXGI_TexelResolution - 0.000001;
