@@ -9,14 +9,16 @@
   float VoxelVisibility(float3 p1, float3 p2)
   {
     float occlusion = 0.0;
-    float stepSize;
+    float stepSize = HalfVoxelSize(MinSampleLevel(p1));
     float3 direction = normalize(p2 - p1);
 
-    do {
-      stepSize = HalfVoxelSize(MinSampleLevel(p1));
+    for(
       p1 += direction * stepSize;
-      occlusion += (1.0 - occlusion) * SampleOcclusion(p1);
-    } while (occlusion < 1.0 && TextureSDF(p1) > 0.0 && dot(p2 - p1, direction) > stepSize);
+      occlusion < 1.0 && dot(p2 - p1, direction) > 0.0;
+      stepSize = HalfVoxelSize(MinSampleLevel(p1)), p1 += direction * stepSize
+    ) {
+      if (TextureSDF(p1) > 0.0) occlusion += (1.0 - occlusion) * SampleOcclusion(p1);
+    }
 
     return 1.0 - occlusion;
   }

@@ -1,3 +1,4 @@
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
@@ -13,6 +14,7 @@ public class VXGIRenderer : System.IDisposable {
   float[] _renderScale;
   CommandBuffer _command;
   CommandBuffer _eventCommand;
+  ComputeBuffer _lightSources;
   CullingResults _cullingResults;
   FilteringSettings _filteringSettings;
   LightingShader[] _lightingPasses;
@@ -43,12 +45,14 @@ public class VXGIRenderer : System.IDisposable {
       new LightingShader(LightingShader.Pass.IndirectSpecular)
     };
 
+    _lightSources = new ComputeBuffer(128, LightSource.size);
     _postProcessRenderContext = new PostProcessRenderContext();
   }
 
   public void Dispose() {
     _command.Dispose();
     _eventCommand.Dispose();
+    _lightSources.Dispose();
   }
 
   public void RenderDeferred(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
@@ -62,6 +66,8 @@ public class VXGIRenderer : System.IDisposable {
     int height = camera.pixelHeight;
 
     _command.BeginSample(_command.name);
+
+    SetupLightSources(_command, vxgi);
 
     if (camera.cameraType != CameraType.SceneView) {
       _command.EnableShaderKeyword("PROJECTION_PARAMS_X");
@@ -263,6 +269,26 @@ public class VXGIRenderer : System.IDisposable {
 
     _filteringSettings.renderQueueRange = RenderQueueRange.transparent;
     renderContext.DrawRenderers(_cullingResults, ref drawingSettings, ref _filteringSettings);
+  }
+
+  void SetupLightSources(CommandBuffer command, VXGI vxgi) {
+    var count = 0;
+    var data = new NativeArray<LightSource>(128, Allocator.Temp);
+
+    for (int i = 0; i < data.Length && i < _cullingResults.visibleLights.Length; i++) {
+      var light = _cullingResults.visibleLights[i];
+
+      if (VXGI.SupportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
+        data[count++] = new LightSource(light, vxgi);
+      }
+    }
+
+    _lightSources.SetData(data);
+
+    command.SetGlobalInt(ShaderIDs.LightCount, count);
+    command.SetGlobalBuffer(ShaderIDs.LightSources, _lightSources);
+
+    data.Dispose();
   }
 
   void TriggerCameraEvent(ScriptableRenderContext renderContext, Camera camera, CameraEvent cameraEvent, VXGI vxgi) {

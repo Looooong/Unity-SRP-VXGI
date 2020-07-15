@@ -21,7 +21,6 @@ public class VoxelShader : System.IDisposable {
   int _kernelRender;
   CommandBuffer _command;
   ComputeBuffer _arguments;
-  ComputeBuffer _lightSources;
   ComputeShader _compute;
   NumThreads _threadsAggregate;
   NumThreads _threadsClear;
@@ -36,7 +35,6 @@ public class VoxelShader : System.IDisposable {
 
     _arguments = new ComputeBuffer(3, sizeof(int), ComputeBufferType.IndirectArguments);
     _arguments.SetData(new int[] { 1, 1, 1 });
-    _lightSources = new ComputeBuffer(64, LightSource.size);
 
     ReloadKernels();
 
@@ -52,7 +50,6 @@ public class VoxelShader : System.IDisposable {
   public void Dispose() {
     _arguments.Dispose();
     _command.Dispose();
-    _lightSources.Dispose();
   }
 
   public void Render(ScriptableRenderContext renderContext) {
@@ -112,14 +109,12 @@ public class VoxelShader : System.IDisposable {
   void ComputeRender() {
     _command.BeginSample(sampleComputeRender);
 
-    _lightSources.SetData(_vxgi.lights);
-
     _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeExtent, .5f * _vxgi.bound);
     _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeSize, _vxgi.bound);
     _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);
-    _command.SetComputeIntParam(compute, ShaderIDs.LightCount, _vxgi.lights.Count);
+    _command.SetComputeIntParam(compute, ShaderIDs.LightCount, _vxgi.Voxelizer.LightsourcesCount);
     _command.SetComputeIntParam(compute, ShaderIDs.VXGI_CascadesCount, _vxgi.CascadesCount);
-    _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.LightSources, _lightSources);
+    _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.LightSources, _vxgi.Voxelizer.LightSources);
     _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.VoxelBuffer, _vxgi.voxelBuffer);
     _command.SetComputeMatrixParam(compute, ShaderIDs.VoxelToWorld, _vxgi.voxelToWorld);
     _command.SetComputeMatrixParam(compute, ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);

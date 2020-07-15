@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,7 +6,6 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(Camera))]
 [AddComponentMenu("Rendering/VXGI")]
 public class VXGI : MonoBehaviour {
-  public readonly static ReadOnlyCollection<LightType> supportedLightTypes = new ReadOnlyCollection<LightType>(new[] { LightType.Point, LightType.Directional, LightType.Spot });
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
   public enum Resolution {
     [InspectorName("Low (32^3)")] Low = 32,
@@ -15,6 +13,11 @@ public class VXGI : MonoBehaviour {
     [InspectorName("High (128^3)")] High = 128,
     [InspectorName("Very High (256^3)")] VeryHigh = 256
   }
+
+  public readonly static ReadOnlyCollection<LightType> SupportedLightTypes = new ReadOnlyCollection<LightType>(new[] {
+    LightType.Point, LightType.Directional, LightType.Spot
+  });
+
   public const int MaxCascadesCount = 8;
   public const int MinCascadesCount = 4;
 
@@ -55,9 +58,6 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
   }
-  public List<LightSource> lights {
-    get { return _lights; }
-  }
   public Matrix4x4 voxelToWorld {
     get { return Matrix4x4.TRS(origin, Quaternion.identity, Vector3.one * voxelSize); }
   }
@@ -85,26 +85,21 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       return position * voxelSize;
     }
   }
-  public Voxelizer voxelizer {
-    get { return _voxelizer; }
-  }
 
   internal bool CascadesEnabled { get; private set; }
   internal int CascadesCount { get; private set; }
+  internal Voxelizer Voxelizer { get; private set; }
 
   int _resolution = 0;
   float _previousTrace = 0f;
   Camera _camera;
   CommandBuffer _command;
-  ComputeBuffer _lightSources;
   ComputeBuffer _voxelBuffer;
-  List<LightSource> _lights;
   Mipmapper _mipmapper;
   Parameterizer _parameterizer;
   RenderTexture[] _radiances;
   RenderTextureDescriptor _radianceDescriptor;
   Vector3 _lastVoxelSpaceCenter;
-  Voxelizer _voxelizer;
   VoxelShader _voxelShader;
 
   #region Rendering
@@ -166,7 +161,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       _mipmapper.Shift(renderContext, Vector3Int.RoundToInt(displacement));
     }
 
-    _voxelizer.Voxelize(renderContext, renderer);
+    Voxelizer.Voxelize(renderContext, renderer);
     _voxelShader.Render(renderContext);
 
     if (!CascadesEnabled) _mipmapper.Filter(renderContext);
@@ -175,14 +170,10 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void SetupShader(ScriptableRenderContext renderContext) {
-    _lightSources.SetData(_lights);
-
-    _command.SetGlobalBuffer(ShaderIDs.LightSources, _lightSources);
     _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
     _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * bound);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, bound);
-    _command.SetGlobalInt(ShaderIDs.LightCount, _lights.Count);
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
     _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, CascadesCount);
     _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
@@ -209,11 +200,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     _camera = GetComponent<Camera>();
     _command = new CommandBuffer { name = "VXGI.MonoBehaviour" };
-    _lights = new List<LightSource>(64);
-    _lightSources = new ComputeBuffer(64, LightSource.size);
     _mipmapper = new Mipmapper(this);
     _parameterizer = new Parameterizer();
-    _voxelizer = new Voxelizer(this);
+    Voxelizer = new Voxelizer(this);
     _voxelShader = new VoxelShader(this);
     _lastVoxelSpaceCenter = voxelSpaceCenter;
 
@@ -227,10 +216,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     DisposeBuffers();
 
     _voxelShader.Dispose();
-    _voxelizer.Dispose();
+    Voxelizer.Dispose();
     _parameterizer.Dispose();
     _mipmapper.Dispose();
-    _lightSources.Dispose();
     _command.Dispose();
   }
   #endregion

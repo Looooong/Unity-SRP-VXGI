@@ -15,7 +15,7 @@
   int MinSampleLevel(float3 position) {
     position = mad(position, 2.0, -1.0);
     int3 level = VXGI_CascadesCountMinusOne + ceil(log2(max(abs(position), 0.000001)));
-    return max(max(level.x, level.y), max(level.z, 0.0));
+    return min(max(max(level.x, level.y), max(level.z, 0.0)), VXGI_CascadesCountMinusOne);
   }
 
   float HalfVoxelSize(int level) {

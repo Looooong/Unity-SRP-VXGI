@@ -1,7 +1,11 @@
-﻿using UnityEngine;
+﻿using Unity.Collections;
+using UnityEngine;
 using UnityEngine.Rendering;
 
-public class Voxelizer : System.IDisposable {
+internal class Voxelizer : System.IDisposable {
+  internal int LightsourcesCount { get; private set; }
+  internal ComputeBuffer LightSources { get; }
+
   int _antiAliasing;
   int _resolution;
   float _bound;
@@ -20,6 +24,8 @@ public class Voxelizer : System.IDisposable {
     _command = new CommandBuffer { name = "VXGI.Voxelizer" };
     _rect = new Rect(0f, 0f, 1f, 1f);
 
+    LightSources = new ComputeBuffer(128, LightSource.size);
+
     CreateCamera();
     CreateCameraDescriptor();
     CreateCameraSettings();
@@ -33,6 +39,7 @@ public class Voxelizer : System.IDisposable {
     GameObject.Destroy(_camera.gameObject);
 #endif
 
+    LightSources.Dispose();
     _command.Dispose();
   }
 
@@ -41,15 +48,8 @@ public class Voxelizer : System.IDisposable {
 
     var cullingResults = renderContext.Cull(ref _cullingParameters);
 
-    _vxgi.lights.Clear();
-
-    foreach (var light in cullingResults.visibleLights) {
-      if (VXGI.supportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        _vxgi.lights.Add(new LightSource(light, _vxgi));
-      }
-    }
-
     UpdateCamera();
+    UpdateLightSources(cullingResults);
 
     _camera.pixelRect = _rect;
 
@@ -134,5 +134,21 @@ public class Voxelizer : System.IDisposable {
 
     _camera.transform.position = _vxgi.voxelSpaceCenter - Vector3.forward * _camera.orthographicSize;
     _camera.transform.LookAt(_vxgi.voxelSpaceCenter, Vector3.up);
+  }
+
+  void UpdateLightSources(CullingResults cullingResults) {
+    var data = new NativeArray<LightSource>(128, Allocator.Temp);
+    LightsourcesCount = 0;
+
+    for (int i = 0; i < data.Length && i < cullingResults.visibleLights.Length; i++) {
+      var light = cullingResults.visibleLights[i];
+
+      if (VXGI.SupportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
+        data[LightsourcesCount++] = new LightSource(light, _vxgi);
+      }
+    }
+
+    LightSources.SetData(data);
+    data.Dispose();
   }
 }

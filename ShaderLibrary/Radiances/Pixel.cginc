@@ -25,7 +25,7 @@
       if (lightSource.type == LIGHT_SOURCE_TYPE_DIRECTIONAL) {
         localPosition = -lightSource.direction;
         notInRange = false;
-        lightSource.voxelPosition = mad(2.0, localPosition, data.voxelPosition);
+        lightSource.voxelPosition = mad(1.732, localPosition, data.voxelPosition);
       } else {
         localPosition = lightSource.worldposition - data.worldPosition;
         notInRange = lightSource.NotInRange(localPosition);
