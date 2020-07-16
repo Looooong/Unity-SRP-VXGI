@@ -39,8 +39,6 @@ Shader "Hidden/VXGI/Voxelization"
       sampler2D _MetallicGlossMap;
       sampler2D _EmissionMap;
 
-      float4x4 VoxelToProjection;
-
       AppendStructuredBuffer<VoxelData> VoxelBuffer;
 
       struct v2g
@@ -61,9 +59,14 @@ Shader "Hidden/VXGI/Voxelization"
       v2g vert(appdata_base v)
       {
         v2g o;
-        o.vertex = mul(WorldToVoxel, mul(unity_ObjectToWorld, v.vertex));
+        o.vertex = UnityObjectToClipPos(v.vertex);
         o.normal = UnityObjectToWorldNormal(v.normal);
         o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+
+#ifdef UNITY_REVERSED_Z
+        o.vertex.z = mad(o.vertex.z, -2.0, 1.0);
+#endif
+
         return o;
       }
 
@@ -106,11 +109,15 @@ Shader "Hidden/VXGI/Voxelization"
         for (int j = 0; j < 3; j++) {
           g2f o;
 
-          o.position = mul(VoxelToProjection, float4(SwizzleAxis(i[j].vertex, axis), 1.0));
+          o.position = float4(SwizzleAxis(i[j].vertex, axis), 1.0);
 
-          #if defined(UNITY_REVERSED_Z)
-            o.position.z = 1.0 - o.position.z;
-          #endif
+#ifdef UNITY_UV_STARTS_AT_TOP
+          o.position.y = -o.position.y;
+#endif
+
+#ifdef UNITY_REVERSED_Z
+          o.position.z = mad(o.position.z, 0.5, 0.5);
+#endif
 
           o.normal = i[j].normal;
           o.axis = axis;

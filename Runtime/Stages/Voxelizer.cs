@@ -59,9 +59,8 @@ internal class Voxelizer : System.IDisposable {
     _command.SetRenderTarget(ShaderIDs.Dummy, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
 
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
-    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);
-    _command.SetGlobalMatrix(ShaderIDs.VoxelToProjection, GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
+    _command.SetViewProjectionMatrices(_camera.worldToCameraMatrix, _camera.projectionMatrix);
 
     _drawingSettings.perObjectData = renderer.RenderPipeline.PerObjectData;
 
