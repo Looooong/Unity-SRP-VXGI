@@ -5,22 +5,20 @@
 
   struct VoxelData
   {
+    // index      : (bit) name
+    // rawData[0] : (16) Position.x | (16) Position.y
+    // rawData[1] : (16) Position.z | (16) Normal.x
+    // rawData[2] : (16) Normal.y   | (16) Normal.z
+    // rawData[3] : (16) Color.r    | (16) Color.g
+    // rawData[4] : (16) Color.b    | (16) Color.a
+    // rawData[5] : (16) Emission.r | (16) Emission.g
+    // rawData[6] : (16) Emission.b | (16) Cascade Index
     uint rawData[VOXEL_DATA_UINTS]; // 7 * 4 bytes
 
     void Initialize()
     {
       [unroll]
       for (uint i = 0; i < VOXEL_DATA_UINTS; i++) rawData[i] = 0;
-
-      SetValid(true);
-    }
-
-    bool IsValid() {
-      return rawData[6] & 0x80000000;
-    }
-
-    void SetValid(bool isValid = true) {
-      rawData[6] |= isValid << 31;
     }
 
     float3 GetPosition()
@@ -100,6 +98,17 @@
       rawData[5] = raw[0] | (raw[1] << 16);
       rawData[6] &= 0xffff0000;
       rawData[6] |= raw[2];
+    }
+
+    uint GetCascadeIndex()
+    {
+      return rawData[6] >> 16u;
+    }
+
+    void SetCascadeIndex(uint index)
+    {
+      rawData[6] &= 0x0000ffff;
+      rawData[6] |= index << 16u;
     }
   };
 #endif

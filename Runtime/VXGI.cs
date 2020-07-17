@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -47,7 +47,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public bool resolutionPlusOne {
     get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
   }
-  public float BufferScale => CascadesEnabled ? 64f * CascadesCount : 64f / (_resolution - _resolution % 2);
+  public float BufferScale => (CascadesEnabled ? CascadesCount : 1f) * 64f / (_resolution - _resolution % 2);
   public float voxelSize {
     get { return bound / (_resolution - _resolution % 2); }
   }
@@ -115,6 +115,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _command.Clear();
 
     UpdateResolution();
+    SetupShaderKeywords(renderContext);
 
     float time = Time.unscaledTime;
     bool tracingThrottled = throttleTracing;
@@ -139,10 +140,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    SetupShader(renderContext);
-
     VXGIRenderPipeline.TriggerCameraCallback(Camera, "OnPreCull", Camera.onPreCull);
 
+    SetupShaderVariables(renderContext);
     renderer.RenderDeferred(renderContext, camera, this);
 
     _command.EndSample(_command.name);
@@ -169,7 +169,30 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _lastVoxelSpaceCenter = voxelSpaceCenter;
   }
 
-  void SetupShader(ScriptableRenderContext renderContext) {
+  void SetupShaderKeywords(ScriptableRenderContext renderContext) {
+    if (CascadesEnabled) {
+      _command.EnableShaderKeyword("VXGI_CASCADES");
+    } else {
+      _command.DisableShaderKeyword("VXGI_CASCADES");
+    }
+
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+  }
+
+  void SetupShaderVariables(ScriptableRenderContext renderContext) {
+    foreach (var radiance in radiances) {
+      if (!radiance.IsCreated()) radiance.Create();
+    }
+
+    if (CascadesEnabled) {
+      _command.SetGlobalTexture(ShaderIDs.Radiance[0], radiances[0]);
+    } else {
+      for (int i = 0; i < 9; i++) {
+        _command.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
+      }
+    }
+
     _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
     _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * bound);
@@ -254,10 +277,6 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       _radianceDescriptor.height = _radianceDescriptor.width = _resolution;
       _radianceDescriptor.volumeDepth = CascadesCount * _resolution;
       _radiances = new[] { new RenderTexture(_radianceDescriptor) };
-      _radiances[0].Create();
-
-      Shader.EnableKeyword("VXGI_CASCADES");
-      Shader.SetGlobalTexture(ShaderIDs.Radiance[0], radiances[0]);
     } else {
       int resolutionModifier = _resolution % 2;
 
@@ -270,21 +289,13 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       ) {
         _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
         _radiances[i] = new RenderTexture(_radianceDescriptor);
-        _radiances[i].Create();
-      }
-
-      Shader.DisableKeyword("VXGI_CASCADES");
-
-      for (int i = 0; i < 9; i++) {
-        Shader.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
       }
     }
   }
 
   void DisposeTextures() {
     foreach (var radiance in _radiances) {
-      radiance.DiscardContents();
-      radiance.Release();
+      if (radiance.IsCreated()) radiance.Release();
       DestroyImmediate(radiance);
     }
   }

@@ -17,6 +17,7 @@ Shader "Hidden/VXGI/Voxelization"
       #pragma vertex vert
       #pragma geometry geom
       #pragma fragment frag
+      #pragma multi_compile _ VXGI_CASCADES
       #pragma shader_feature _EMISSION
       #pragma shader_feature_local _METALLICGLOSSMAP
 
@@ -39,6 +40,7 @@ Shader "Hidden/VXGI/Voxelization"
       sampler2D _MetallicGlossMap;
       sampler2D _EmissionMap;
 
+      uint VXGI_CascadeIndex;
       AppendStructuredBuffer<VoxelData> VoxelBuffer;
 
       struct v2g
@@ -173,6 +175,11 @@ Shader "Hidden/VXGI/Voxelization"
         d.SetNormal(i.normal);
         d.SetColor(mad(-0.5, metallic, 1.0) * _Color * tex2Dlod(_MainTex, float4(i.uv, 0.0, 0.0)));
         d.SetEmission(emission + ShadeSH9(float4(i.normal, 1.0)));
+
+#ifdef VXGI_CASCADES
+        d.SetCascadeIndex(VXGI_CascadeIndex);
+#endif
+
         VoxelBuffer.Append(d);
 
         return 0.0;

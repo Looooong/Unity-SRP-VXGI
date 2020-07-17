@@ -21,7 +21,6 @@
   static float VXGI_VoxelResolutionRcp = 1.0 / Resolution;
   static float3 VXGI_VolumeMin = VXGI_VolumeCenter - VXGI_VolumeExtent;
   static int VXGI_CascadesCountMinusOne = VXGI_CascadesCount - 1;
-  static int VXGI_CascadesCountMinusTwo = VXGI_CascadesCount - 2;
 
 #ifdef VXGI_CASCADES
   static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);

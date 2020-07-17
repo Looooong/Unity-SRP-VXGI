@@ -46,7 +46,7 @@ class VXGIMipmapDebug : MonoBehaviour {
     if (_vxgi.CascadesEnabled) {
       _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.cascadesCount));
     } else {
-      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.radiances.Length));
+      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level + 1, _vxgi.radiances.Length));
     }
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, rayTracingStep);
     _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);

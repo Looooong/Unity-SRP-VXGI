@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Rendering;
 
 public class VoxelShader : System.IDisposable {
@@ -21,6 +21,7 @@ public class VoxelShader : System.IDisposable {
   int _kernelRender;
   CommandBuffer _command;
   ComputeBuffer _arguments;
+  ComputeBuffer _voxelFragmentsCountBuffer;
   ComputeShader _compute;
   NumThreads _threadsAggregate;
   NumThreads _threadsClear;
@@ -36,6 +37,8 @@ public class VoxelShader : System.IDisposable {
     _arguments = new ComputeBuffer(3, sizeof(int), ComputeBufferType.IndirectArguments);
     _arguments.SetData(new int[] { 1, 1, 1 });
 
+    _voxelFragmentsCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+
     ReloadKernels();
 
     _descriptor = new RenderTextureDescriptor() {
@@ -49,6 +52,7 @@ public class VoxelShader : System.IDisposable {
 
   public void Dispose() {
     _arguments.Dispose();
+    _voxelFragmentsCountBuffer.Dispose();
     _command.Dispose();
   }
 
@@ -109,6 +113,8 @@ public class VoxelShader : System.IDisposable {
   void ComputeRender() {
     _command.BeginSample(sampleComputeRender);
 
+    _command.CopyCounterValue(_vxgi.voxelBuffer, _voxelFragmentsCountBuffer, 0);
+    _command.SetComputeBufferParam(compute, _kernelRender, ShaderIDs.VXGI_VoxelFragmentsCountBuffer, _voxelFragmentsCountBuffer);
     _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeExtent, .5f * _vxgi.bound);
     _command.SetComputeFloatParam(compute, ShaderIDs.VXGI_VolumeSize, _vxgi.bound);
     _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);

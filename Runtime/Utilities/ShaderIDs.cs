@@ -44,9 +44,11 @@ internal static class ShaderIDs {
   internal static readonly int Target = Shader.PropertyToID("Target");
   internal static readonly int VoxelBuffer = Shader.PropertyToID("VoxelBuffer");
   internal static readonly int VoxelToWorld = Shader.PropertyToID("VoxelToWorld");
+  internal static readonly int VXGI_CascadeIndex = Shader.PropertyToID("VXGI_CascadeIndex");
   internal static readonly int VXGI_CascadesCount = Shader.PropertyToID("VXGI_CascadesCount");
   internal static readonly int VXGI_VolumeCenter = Shader.PropertyToID("VXGI_VolumeCenter");
   internal static readonly int VXGI_VolumeExtent = Shader.PropertyToID("VXGI_VolumeExtent");
   internal static readonly int VXGI_VolumeSize = Shader.PropertyToID("VXGI_VolumeSize");
+  internal static readonly int VXGI_VoxelFragmentsCountBuffer = Shader.PropertyToID("VXGI_VoxelFragmentsCountBuffer");
   internal static readonly int WorldToVoxel = Shader.PropertyToID("WorldToVoxel");
 }

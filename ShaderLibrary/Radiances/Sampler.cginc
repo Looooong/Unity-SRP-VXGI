@@ -26,15 +26,28 @@
     return exp2(level - VXGI_CascadesCountMinusOne) / Resolution;
   }
 
-  float3 TransformVoxelToTexelPosition(float3 position, int level) {
-    position = mad(
-      position,
-      exp2(VXGI_CascadesCountMinusOne - level),
-      0.5 - exp2(VXGI_CascadesCountMinusTwo - level)
-    );
+  // Normalized cascade coordinate to normalized texture coordinate based on cascade level
+  float3 TransformCascadeToTexelPosition(float3 position, int level) {
     position.z = clamp(position.z, 0.5 * VXGI_VoxelResolutionRcp, 1.0 - 0.5 * VXGI_VoxelResolutionRcp);
     position.z += level;
-    position.z /= VXGI_CascadesCount;
+    position.z *= VXGI_CascadesCountRcp;
+    return position;
+  }
+
+  // Normalized cascade coordinate to normalized voxel coordinate based on cascade level
+  float3 TransformCascadeToVoxelPosition(float3 position, int level) {
+    return mad(position - 0.5, exp2(level - VXGI_CascadesCountMinusOne), 0.5);
+  }
+
+  // Normalized voxel coordinate to normalized cascade coordinate based on cascade level
+  float3 TransformVoxelToCascadePosition(float3 position, int level) {
+    return mad(position - 0.5, exp2(VXGI_CascadesCountMinusOne - level), 0.5);
+  }
+
+  // Normalized voxel coordinate to normalized texture coordinate based on cascade level
+  float3 TransformVoxelToTexelPosition(float3 position, int level) {
+    position = TransformVoxelToCascadePosition(position, level);
+    position = TransformCascadeToTexelPosition(position, level);
     return position;
   }
 
