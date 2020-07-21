@@ -11,7 +11,7 @@ Shader "Hidden/VXGI/Visualization"
     {
       Name "Mipmap"
 
-      Blend One OneMinusSrcAlpha
+      Blend One Zero
       ZTest Always
       ZWrite Off
 
@@ -19,6 +19,7 @@ Shader "Hidden/VXGI/Visualization"
       #pragma vertex vert
       #pragma fragment frag
       #pragma multi_compile _ RADIANCE_POINT_SAMPLER
+      #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
       #pragma multi_compile _ VXGI_CASCADES
 
       #include "UnityCG.cginc"
@@ -73,6 +74,7 @@ Shader "Hidden/VXGI/Visualization"
 
       float MipmapLevel;
       float RayTracingStep;
+      float3 VXGI_SampleDirection;
       static float MipmapSize = MipmapLevel < 1.0 ? MipmapLevel : pow(2, MipmapLevel - 1.0);
 
       v2f vert(uint id : SV_VertexID)
@@ -91,15 +93,18 @@ Shader "Hidden/VXGI/Visualization"
         float3 unit = view * RayTracingStep / view.z;
         view += unit * DitherPattern[i.position.x % 4][i.position.y % 4];
         float3 coordinate = mul(transpose(UNITY_MATRIX_IT_MV), float4(view, 1.0));
-
-        half4 color = half4(0.0, 0.0, 0.0, 0.0);
+        half4 color = 0.0;
 
         while ((view.z <= 2 * RayTracingStep) && (TextureSDF(coordinate) > -0.000001)) {
 #ifdef VXGI_CASCADES
-          half4 sample = SampleRadiance(coordinate, MipmapLevel);
+#ifdef VXGI_ANISOTROPIC_VOXEL
+          half4 sample = SampleRadiance(coordinate, MipmapLevel, VXGI_SampleDirection);
 #else
-          half4 sample = SampleRadiance(coordinate, MipmapSize);
+          half4 sample = SampleRadiance(coordinate, MipmapLevel);
 #endif
+#else // VXGI_CASCADES
+          half4 sample = SampleRadiance(coordinate, MipmapSize);
+#endif // VXGI_CASCADES
           color = sample + color * (1 - sample.a);
           view += unit;
           coordinate = mul(transpose(UNITY_MATRIX_IT_MV), float4(view, 1.0));

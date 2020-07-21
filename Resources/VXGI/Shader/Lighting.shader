@@ -81,6 +81,7 @@ Shader "Hidden/VXGI/Lighting"
       HLSLPROGRAM
       #pragma vertex BlitVertex
       #pragma fragment frag
+      #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
       #pragma multi_compile _ VXGI_CASCADES
 
       float3 frag(BlitInput i) : SV_TARGET
@@ -101,6 +102,7 @@ Shader "Hidden/VXGI/Lighting"
       HLSLPROGRAM
       #pragma vertex BlitVertex
       #pragma fragment frag
+      #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
       #pragma multi_compile _ VXGI_CASCADES
 
       float IndirectDiffuseModifier;
@@ -123,6 +125,7 @@ Shader "Hidden/VXGI/Lighting"
       HLSLPROGRAM
       #pragma vertex BlitVertex
       #pragma fragment frag
+      #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
       #pragma multi_compile _ VXGI_CASCADES
 
       float IndirectSpecularModifier;

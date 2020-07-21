@@ -60,6 +60,39 @@
     level = clamp(level, MinSampleLevel(position), VXGI_CascadesCountMinusOne);
     return Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level), 0.0);
   }
+
+#ifdef VXGI_ANISOTROPIC_VOXEL
+  float3 TransformVoxelToTexelPosition(float3 position, int level, int face) {
+    position = TransformVoxelToCascadePosition(position, level);
+    position = TransformCascadeToTexelPosition(position, level);
+    position.y = clamp(position.y, 0.5 * VXGI_VoxelResolutionRcp, 1.0 - 0.5 * VXGI_VoxelResolutionRcp);
+    position.y += face;
+    position.y /= 6;
+    return position;
+  }
+
+  float SampleOcclusion(float3 position, float3 direction) {
+    float3 directionSqr = direction * direction;
+    int3 isNegative = direction < 0.0;
+    int level = MinSampleLevel(position);
+
+    return directionSqr.x * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 0 + isNegative.x), 0.0).a +
+           directionSqr.y * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 2 + isNegative.y), 0.0).a +
+           directionSqr.z * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 4 + isNegative.z), 0.0).a;
+  }
+
+
+  float4 SampleRadiance(float3 position, int level, float3 direction) {
+    float3 directionSqr = direction * direction;
+    int3 isNegative = direction < 0.0;
+    level = clamp(level, MinSampleLevel(position), VXGI_CascadesCountMinusOne);
+
+    return directionSqr.x * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 0 + isNegative.x), 0.0) +
+           directionSqr.y * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 2 + isNegative.y), 0.0) +
+           directionSqr.z * Radiance0.SampleLevel(RADIANCE_SAMPLER, TransformVoxelToTexelPosition(position, level, 4 + isNegative.z), 0.0);
+  }
+#endif
+
 #else
   #define LERP_RADIANCE(level, position, fraction) lerp(SAMPLE_RADIANCE(level - 1, position), SAMPLE_RADIANCE(level, position), fraction)
   #define SAMPLE_RADIANCE(level, position) Radiances[level].SampleLevel(RADIANCE_SAMPLER, position, 0.0)

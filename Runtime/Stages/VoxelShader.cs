@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
 
 public class VoxelShader : System.IDisposable {
@@ -102,9 +102,9 @@ public class VoxelShader : System.IDisposable {
     _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.RadianceRG, ShaderIDs.RadianceRG);
     _command.SetComputeTextureParam(compute, _kernelClear, ShaderIDs.RadianceCount, ShaderIDs.RadianceCount);
     _command.DispatchCompute(compute, _kernelClear,
-      Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.x),
-      Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.y),
-      Mathf.CeilToInt((float)_vxgi.resolution / _threadsClear.z) * (_vxgi.CascadesEnabled ? _vxgi.CascadesCount : 1)
+      Mathf.CeilToInt((float)_descriptor.width / _threadsClear.x),
+      Mathf.CeilToInt((float)_descriptor.height / _threadsClear.y),
+      Mathf.CeilToInt((float)_descriptor.volumeDepth / _threadsClear.z)
     );
 
     _command.EndSample(sampleComputeClear);
@@ -152,7 +152,7 @@ public class VoxelShader : System.IDisposable {
     ReloadKernels();
 #endif
 
-    _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (int)_vxgi.resolution;
+    _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (_vxgi.AnisotropicVoxel ? 2 : 1) * (int)_vxgi.resolution;
 
     if (_vxgi.CascadesEnabled) _descriptor.volumeDepth *= _vxgi.cascadesCount;
 
@@ -164,14 +164,24 @@ public class VoxelShader : System.IDisposable {
   }
 
   void ReloadKernels() {
-    if ( _vxgi.CascadesEnabled) {
-      _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 3 : 2;
-      _kernelClear = 5;
-      _kernelRender = 7;
-    } else {
-      _kernelAggregate = VXGIRenderPipeline.isD3D11Supported ? 1 : 0;
-      _kernelClear = 4;
-      _kernelRender = 6;
+    _kernelAggregate = 0;
+    _kernelClear = 8;
+    _kernelRender = 12;
+
+    if (VXGIRenderPipeline.isD3D11Supported) {
+      _kernelAggregate += 1;
+    }
+
+    if (_vxgi.AnisotropicVoxel) {
+      _kernelAggregate += 4;
+      _kernelClear += 2;
+      _kernelRender += 2;
+    }
+
+    if (_vxgi.CascadesEnabled) {
+      _kernelAggregate += 2;
+      _kernelClear += 1;
+      _kernelRender += 1;
     }
 
     _threadsAggregate = new NumThreads(compute, _kernelAggregate);

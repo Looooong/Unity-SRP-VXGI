@@ -22,14 +22,6 @@
   static float3 VXGI_VolumeMin = VXGI_VolumeCenter - VXGI_VolumeExtent;
   static int VXGI_CascadesCountMinusOne = VXGI_CascadesCount - 1;
 
-#ifdef VXGI_CASCADES
-  static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
-#else
-  static uint3 VXGI_TexelResolution = Resolution;
-#endif
-
-  static float3 VXGI_TexelResolutionMinus = VXGI_TexelResolution - 0.000001;
-
   // Cone tracing direction for indirect diffuse calculations
   static float3 Directions[32] = {
     float3(+0.000000, +1.000000, +0.000000),

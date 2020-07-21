@@ -9,20 +9,27 @@
   float VoxelVisibility(float3 p1, float3 p2)
   {
     float occlusion = 0.0;
+    float stepDistance = distance(p2, p1);
     float stepSize = HalfVoxelSize(MinSampleLevel(p1));
     float3 direction = normalize(p2 - p1);
 
     for(
       p1 += direction * stepSize;
-      occlusion < 1.0 && dot(p2 - p1, direction) > 0.0;
-      stepSize = HalfVoxelSize(MinSampleLevel(p1)), p1 += direction * stepSize
+      occlusion < 1.0 && stepDistance > 0.0;
+      stepSize = HalfVoxelSize(MinSampleLevel(p1)), p1 += direction * stepSize, stepDistance -= stepSize
     ) {
-      if (TextureSDF(p1) > 0.0) occlusion += (1.0 - occlusion) * SampleOcclusion(p1);
+      if (TextureSDF(p1) > 0.0) {
+#ifdef VXGI_ANISOTROPIC_VOXEL
+      occlusion += (1.0 - occlusion) * SampleOcclusion(p1, -direction);
+#else // VXGI_ANISOTROPIC_VOXEL
+      occlusion += (1.0 - occlusion) * SampleOcclusion(p1);
+#endif // VXGI_ANISOTROPIC_VOXEL
+      }
     }
 
     return 1.0 - occlusion;
   }
-#else
+#else // VXGI_CASCADES
   // Calculate visibility between 2 points in voxel space
   float VoxelVisibility(float3 p1, float3 p2)
   {

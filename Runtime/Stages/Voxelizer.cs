@@ -1,4 +1,4 @@
-using Unity.Collections;
+﻿using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -114,6 +114,8 @@ internal class Voxelizer : System.IDisposable {
     }
 
     int newResolution = (int)_vxgi.resolution;
+
+    if (_vxgi.AnisotropicVoxel) newResolution *= 2;
 
     if (_resolution != newResolution) {
       _cameraDescriptor.height = _cameraDescriptor.width = _resolution = newResolution;

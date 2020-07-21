@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -21,6 +21,7 @@ public class VXGI : MonoBehaviour {
   public const int MaxCascadesCount = 8;
   public const int MinCascadesCount = 4;
 
+  public bool anisotropicVoxel;
   public bool cascadesEnabled;
   [Range(MinCascadesCount, MaxCascadesCount)]
   public int cascadesCount = MinCascadesCount;
@@ -86,6 +87,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     }
   }
 
+  internal bool AnisotropicVoxel { get; private set; }
   internal bool CascadesEnabled { get; private set; }
   internal int CascadesCount { get; private set; }
   internal Voxelizer Voxelizer { get; private set; }
@@ -170,6 +172,12 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void SetupShaderKeywords(ScriptableRenderContext renderContext) {
+    if (AnisotropicVoxel) {
+      _command.EnableShaderKeyword("VXGI_ANISOTROPIC_VOXEL");
+    } else {
+      _command.DisableShaderKeyword("VXGI_ANISOTROPIC_VOXEL");
+    }
+
     if (CascadesEnabled) {
       _command.EnableShaderKeyword("VXGI_CASCADES");
     } else {
@@ -276,6 +284,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     if (CascadesEnabled) {
       _radianceDescriptor.height = _radianceDescriptor.width = _resolution;
       _radianceDescriptor.volumeDepth = CascadesCount * _resolution;
+
+      if (AnisotropicVoxel) _radianceDescriptor.height *= 6;
+
       _radiances = new[] { new RenderTexture(_radianceDescriptor) };
     } else {
       int resolutionModifier = _resolution % 2;
@@ -308,6 +319,11 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   void UpdateResolution() {
     bool resize = false;
+
+    if (AnisotropicVoxel != anisotropicVoxel) {
+      AnisotropicVoxel = anisotropicVoxel;
+      resize = true;
+    }
 
     if (CascadesEnabled != cascadesEnabled) {
       CascadesEnabled = cascadesEnabled;

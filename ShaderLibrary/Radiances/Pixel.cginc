@@ -97,7 +97,11 @@
         incoming.a < 0.95 && TextureSDF(samplePosition) > 0.0 && level < VXGI_CascadesCount;
         level++, relativeSamplePosition *= 2.0, samplePosition = apex + relativeSamplePosition
       ) {
+#ifdef VXGI_ANISOTROPIC_VOXEL
+        incoming += (1.0 - incoming.a) * SampleRadiance(samplePosition, level, -direction);
+#else // VXGI_ANISOTROPIC_VOXEL
         incoming += (1.0 - incoming.a) * SampleRadiance(samplePosition, level);
+#endif //VXGI_ANISOTROPIC_VOXEL
       }
 
       radiance += incoming.rgb * NdotL;

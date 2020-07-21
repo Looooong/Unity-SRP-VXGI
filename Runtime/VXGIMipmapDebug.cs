@@ -9,7 +9,7 @@ class VXGIMipmapDebug : MonoBehaviour {
   public bool usePointFilter = true;
   [Range(0f, 9f)]
   public float level = 1f;
-  public float rayTracingStep = .05f;
+  [Min(0.001f)] public float rayTracingStep = .05f;
 
   Camera _camera;
   CommandBuffer _command;
@@ -30,6 +30,13 @@ class VXGIMipmapDebug : MonoBehaviour {
     _command.Dispose();
   }
 
+  void OnDrawGizmosSelected() {
+    if (_vxgi.AnisotropicVoxel) {
+      Gizmos.color = Color.red;
+      Gizmos.DrawLine(_vxgi.voxelSpaceCenter, _vxgi.voxelSpaceCenter + (_camera.transform.position - _vxgi.voxelSpaceCenter).normalized);
+    }
+  }
+
   void OnPreRender() {
     if (!isActiveAndEnabled || !_vxgi.isActiveAndEnabled) return;
 
@@ -48,7 +55,9 @@ class VXGIMipmapDebug : MonoBehaviour {
     } else {
       _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level + 1, _vxgi.radiances.Length));
     }
-    _command.SetGlobalFloat(ShaderIDs.RayTracingStep, rayTracingStep);
+
+    _command.SetGlobalFloat(ShaderIDs.RayTracingStep, Mathf.Max(rayTracingStep, .001f));
+    _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.voxelSpaceCenter).normalized);
     _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
   }
