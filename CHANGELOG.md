@@ -15,6 +15,7 @@
 
 - Improved cone tracing direction selection.
 - Removed cone tracing bias.
+- Removed redundant matrix multiplication in voxelization step.
 
 ### Fixed
 

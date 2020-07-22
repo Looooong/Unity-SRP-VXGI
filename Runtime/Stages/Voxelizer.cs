@@ -4,12 +4,10 @@ using UnityEngine.Rendering;
 public class Voxelizer : System.IDisposable {
   int _antiAliasing;
   int _resolution;
-  float _bound;
   Camera _camera;
   CommandBuffer _command;
   DrawingSettings _drawingSettings;
   FilteringSettings _filteringSettings;
-  Rect _rect;
   RenderTextureDescriptor _cameraDescriptor;
   ScriptableCullingParameters _cullingParameters;
   VXGI _vxgi;
@@ -18,7 +16,6 @@ public class Voxelizer : System.IDisposable {
     _vxgi = vxgi;
 
     _command = new CommandBuffer { name = "VXGI.Voxelizer" };
-    _rect = new Rect(0f, 0f, 1f, 1f);
 
     CreateCamera();
     CreateCameraDescriptor();
@@ -51,17 +48,14 @@ public class Voxelizer : System.IDisposable {
 
     UpdateCamera();
 
-    _camera.pixelRect = _rect;
-
     _command.BeginSample(_command.name);
 
     _command.GetTemporaryRT(ShaderIDs.Dummy, _cameraDescriptor);
     _command.SetRenderTarget(ShaderIDs.Dummy, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
 
     _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
-    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);
-    _command.SetGlobalMatrix(ShaderIDs.VoxelToProjection, GL.GetGPUProjectionMatrix(_camera.projectionMatrix, true) * _camera.worldToCameraMatrix * _vxgi.voxelToWorld);
     _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, false);
+    _command.SetViewProjectionMatrices(_camera.worldToCameraMatrix, _camera.projectionMatrix);
 
     _drawingSettings.perObjectData = renderer.RenderPipeline.PerObjectData;
 
@@ -87,7 +81,7 @@ public class Voxelizer : System.IDisposable {
     _camera = gameObject.AddComponent<Camera>();
     _camera.allowMSAA = true;
     _camera.orthographic = true;
-    _camera.nearClipPlane = 0f;
+    _camera.pixelRect = new Rect(0f, 0f, 1f, 1f);
   }
 
   void CreateCameraDescriptor() {
@@ -106,20 +100,10 @@ public class Voxelizer : System.IDisposable {
     _filteringSettings = new FilteringSettings(RenderQueueRange.all);
   }
 
-  void ResizeCamera() {
-    _camera.farClipPlane = _bound;
-    _camera.orthographicSize = .5f * _camera.farClipPlane;
-  }
-
   void UpdateCamera() {
     if (_antiAliasing != (int)_vxgi.antiAliasing) {
       _antiAliasing = (int)_vxgi.antiAliasing;
       _cameraDescriptor.msaaSamples = _antiAliasing;
-    }
-
-    if (_bound != _vxgi.bound) {
-      _bound = _vxgi.bound;
-      ResizeCamera();
     }
 
     if (_resolution != (int)_vxgi.resolution) {
@@ -127,7 +111,9 @@ public class Voxelizer : System.IDisposable {
       _cameraDescriptor.height = _cameraDescriptor.width = _resolution;
     }
 
-    _camera.transform.position = _vxgi.voxelSpaceCenter - Vector3.forward * _camera.orthographicSize;
-    _camera.transform.LookAt(_vxgi.voxelSpaceCenter, Vector3.up);
+    _camera.farClipPlane = .5f * _vxgi.bound;
+    _camera.orthographicSize = .5f * _vxgi.bound;
+    _camera.nearClipPlane = -.5f * _vxgi.bound;
+    _camera.transform.position = _vxgi.voxelSpaceCenter;
   }
 }
