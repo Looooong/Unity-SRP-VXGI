@@ -35,7 +35,7 @@
       if (notInRange || (spotFalloff <= 0.0) || (data.NdotL <= 0.0)) continue;
 
       radiance +=
-        VoxelVisibility(data.voxelPosition + data.vecN, lightSource.voxelPosition)
+        VXGI_VoxelVisibility((data.voxelPosition + data.vecN) / Resolution, lightSource.voxelPosition / Resolution)
         * GeneralBRDF(data)
         * data.NdotL
         * spotFalloff

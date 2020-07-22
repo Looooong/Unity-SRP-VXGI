@@ -1,25 +1,28 @@
-#ifndef VXGI_VISIBILITY
-  #define VXGI_VISIBILITY
+#ifndef VXGI_SHADERLIBRARY_VISIBILITY
+#define VXGI_SHADERLIBRARY_VISIBILITY
 
-  #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
-  #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Utilities.cginc"
-  #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Sampler.cginc"
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Utilities.cginc"
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Sampler.cginc"
 
-  // Calculate visibility between 2 points in voxel space
-  float VoxelVisibility(float3 p1, float3 p2)
-  {
-    float occlusion = 0.0;
-    float3 direction = normalize(p2 - p1);
-    float3 step = direction / Resolution;
+// Calculate visibility between 2 points in voxel space
+float VXGI_VoxelVisibility(float3 p1, float3 p2)
+{
+  uint level = 0;
+  float opacity = 0.0;
+  float stepDistance = distance(p1, p2);
+  float stepSize = 0.5 * VXGI_VoxelSizes[level];
+  float3 stepDirection = normalize(p2 - p1);
+  float3 step = stepSize * stepDirection;
 
-    for (
-      float3 coordinate = p1 / Resolution + step;
-      occlusion < 1.0 && TextureSDF(coordinate) > 0.0 && dot(mad(-coordinate, Resolution, p2), direction) > 0.5;
-      coordinate += 0.5 * step
-    ) {
-      occlusion += (1.0 - occlusion) * SampleOcclusion(coordinate, 1.0);
-    }
-
-    return 1.0 - occlusion;
+  for (
+    p1 += step, stepDistance -= stepSize;
+    opacity < 1.0 && stepDistance > 0.0;
+    p1 += step, stepDistance -= stepSize
+  ) {
+    if (TextureSDF(p1) > 0.0) opacity += (1.0 - opacity) * VXGI_VoxelOpacity(p1);
   }
-#endif
+
+  return 1.0 - opacity;
+}
+#endif // VXGI_SHADERLIBRARY_VISIBILITY
