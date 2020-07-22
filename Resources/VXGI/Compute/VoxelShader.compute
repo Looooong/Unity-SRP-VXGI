@@ -81,6 +81,8 @@ void CSRender(uint id : SV_DispatchThreadID)
 
   uint4 intColor = (uint4)round(color * RADIANCE_PRECISION);
 
+  position = min(position, Resolution - 1);
+
   InterlockedAdd(RadianceRG[position], intColor.r | intColor.g << 16);
   InterlockedAdd(RadianceBA[position], intColor.b | intColor.a << 16);
   InterlockedAdd(RadianceCount[position], 1);

@@ -188,7 +188,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   #region Messages
   void OnDrawGizmosSelected() {
-    Gizmos.color = new Color(0, 0, 1, .2f);
+    Gizmos.color = Color.green;
     Gizmos.DrawWireCube(voxelSpaceCenter, Vector3.one * bound);
   }
 

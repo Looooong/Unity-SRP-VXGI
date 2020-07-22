@@ -8,8 +8,8 @@ Shader "Hidden/VXGI/Voxelization"
       Tags { "LightMode"="Voxelization" }
 
       Cull Off
-      ZWrite Off
       ZTest Always
+      ZWrite Off
 
       HLSLPROGRAM
       #pragma require geometry
@@ -18,6 +18,7 @@ Shader "Hidden/VXGI/Voxelization"
       #pragma geometry geom
       #pragma fragment frag
       #pragma shader_feature _EMISSION
+      #pragma shader_feature_local _METALLICGLOSSMAP
 
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
@@ -29,18 +30,14 @@ Shader "Hidden/VXGI/Voxelization"
 
       CBUFFER_START(UnityPerMaterial)
         half4 _Color;
+        half3 _EmissionColor;
         float4 _MainTex_ST;
         half _Metallic;
-        half3 _EmissionColor;
       CBUFFER_END
 
+      sampler2D _EmissionMap;
       sampler2D _MainTex;
       sampler2D _MetallicGlossMap;
-      sampler2D _EmissionMap;
-
-      // Map depth [0, 1] to Z coordinate [0, Resolution)
-      static float DepthResolution = Resolution * 0.99999999;
-      float4x4 VoxelToProjection;
 
       AppendStructuredBuffer<VoxelData> VoxelBuffer;
 
@@ -62,9 +59,14 @@ Shader "Hidden/VXGI/Voxelization"
       v2g vert(appdata_base v)
       {
         v2g o;
-        o.vertex = mul(WorldToVoxel, mul(unity_ObjectToWorld, v.vertex));
+        o.vertex = UnityObjectToClipPos(v.vertex);
         o.normal = UnityObjectToWorldNormal(v.normal);
         o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+
+#ifdef UNITY_REVERSED_Z
+        o.vertex.z = mad(o.vertex.z, -2.0, 1.0);
+#endif
+
         return o;
       }
 
@@ -107,11 +109,15 @@ Shader "Hidden/VXGI/Voxelization"
         for (int j = 0; j < 3; j++) {
           g2f o;
 
-          o.position = mul(VoxelToProjection, float4(SwizzleAxis(i[j].vertex, axis), 1.0));
+          o.position = float4(SwizzleAxis(i[j].vertex, axis), 1.0);
 
-          #if defined(UNITY_REVERSED_Z)
-            o.position.z = 1.0 - o.position.z;
-          #endif
+#ifdef UNITY_UV_STARTS_AT_TOP
+          o.position.y = -o.position.y;
+#endif
+
+#ifdef UNITY_REVERSED_Z
+          o.position.z = mad(o.position.z, 0.5, 0.5);
+#endif
 
           o.normal = i[j].normal;
           o.axis = axis;
@@ -145,23 +151,25 @@ Shader "Hidden/VXGI/Voxelization"
 
       fixed frag(g2f i) : SV_TARGET
       {
-        #ifdef _METALLICGLOSSMAP
-          float metallic = tex2D(_MetallicGlossMap, i.uv).r;
-        #else
-          float metallic = _Metallic;
-        #endif
+#ifdef _METALLICGLOSSMAP
+        float metallic = tex2D(_MetallicGlossMap, i.uv).r;
+#else
+        float metallic = _Metallic;
+#endif
 
         i.normal = normalize(i.normal);
 
-        #ifdef _EMISSION
-          float3 emission = _EmissionColor * tex2Dlod(_EmissionMap, float4(i.uv, 0.0, 0.0));
-        #else
-          float3 emission = 0.0;
-        #endif
+#ifdef _EMISSION
+        float3 emission = _EmissionColor * tex2Dlod(_EmissionMap, float4(i.uv, 0.0, 0.0));
+#else
+        float3 emission = 0.0;
+#endif
+
+        float3 voxelPosition = float3(i.position.xy, i.position.z * Resolution);
 
         VoxelData d;
         d.Initialize();
-        d.SetPosition(RestoreAxis(float3(i.position.xy, i.position.z * DepthResolution), i.axis));
+        d.SetPosition(RestoreAxis(voxelPosition, i.axis));
         d.SetNormal(i.normal);
         d.SetColor(mad(-0.5, metallic, 1.0) * _Color * tex2Dlod(_MainTex, float4(i.uv, 0.0, 0.0)));
         d.SetEmission(emission + ShadeSH9(float4(i.normal, 1.0)));
