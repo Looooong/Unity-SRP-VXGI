@@ -20,7 +20,6 @@ public class Voxelizer : System.IDisposable {
     CreateCamera();
     CreateCameraDescriptor();
     CreateCameraSettings();
-    UpdateCamera();
   }
 
   public void Dispose() {
@@ -80,8 +79,8 @@ public class Voxelizer : System.IDisposable {
 
     _camera = gameObject.AddComponent<Camera>();
     _camera.allowMSAA = true;
+    _camera.aspect = 1f;
     _camera.orthographic = true;
-    _camera.pixelRect = new Rect(0f, 0f, 1f, 1f);
   }
 
   void CreateCameraDescriptor() {
@@ -112,8 +111,8 @@ public class Voxelizer : System.IDisposable {
     }
 
     _camera.farClipPlane = .5f * _vxgi.bound;
-    _camera.orthographicSize = .5f * _vxgi.bound;
     _camera.nearClipPlane = -.5f * _vxgi.bound;
+    _camera.orthographicSize = .5f * _vxgi.bound;
     _camera.transform.position = _vxgi.voxelSpaceCenter;
   }
 }
