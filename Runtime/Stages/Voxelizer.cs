@@ -26,7 +26,6 @@ internal class Voxelizer : System.IDisposable {
     CreateCamera();
     CreateCameraDescriptor();
     CreateCameraSettings();
-    UpdateCamera();
   }
 
   public void Dispose() {
@@ -87,8 +86,8 @@ internal class Voxelizer : System.IDisposable {
 
     _camera = gameObject.AddComponent<Camera>();
     _camera.allowMSAA = true;
+    _camera.aspect = 1f;
     _camera.orthographic = true;
-    _camera.pixelRect = new Rect(0f, 0f, 1f, 1f);
   }
 
   void CreateCameraDescriptor() {
