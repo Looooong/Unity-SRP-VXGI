@@ -75,6 +75,8 @@ public class VXGIRenderer : System.IDisposable {
       _command.DisableShaderKeyword("PROJECTION_PARAMS_X");
     }
 
+    TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeGBuffer, vxgi);
+
     _command.GetTemporaryRT(ShaderIDs._CameraDepthTexture, width, height, 24, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
     _command.GetTemporaryRT(ShaderIDs._CameraGBufferTexture0, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
     _command.GetTemporaryRT(ShaderIDs._CameraGBufferTexture1, width, height, 0, FilterMode.Point, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
@@ -86,7 +88,6 @@ public class VXGIRenderer : System.IDisposable {
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeGBuffer, vxgi);
     RenderGBuffers(renderContext, camera);
     TriggerCameraEvent(renderContext, camera, CameraEvent.AfterGBuffer, vxgi);
 
