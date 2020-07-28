@@ -11,6 +11,7 @@
 
 - Added indirect lighting modifier.
 - Added support for `Camera.current`.
+- Added support for `OnRenderObject` callback.
 
 ### Changed
 
