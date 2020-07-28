@@ -25,6 +25,7 @@
 - Fixed the gizmos being drawn in Game View.
 - Fixed camera stacking.
 - Fixed freezing when starting editor.
+- Fixed camera clear flags not handled properly in fallback rendering.
 
 ## [0.0.1]
 
