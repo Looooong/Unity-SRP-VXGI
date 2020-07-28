@@ -26,7 +26,7 @@ public class VXGIRenderPipeline : RenderPipeline {
 
   public VXGIRenderPipeline(VXGIRenderPipelineAsset asset) {
     _renderer = new VXGIRenderer(this);
-    _command = new CommandBuffer() { name = "VXGI.RenderPipeline" };
+    _command = new CommandBuffer();
     _filteringSettings = FilteringSettings.defaultValue;
 
     PerObjectData = asset.perObjectData;
@@ -50,6 +50,12 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     foreach (var camera in cameras) {
       BeginCameraRendering(renderContext, camera);
+      Camera.SetupCurrent(camera);
+
+      _command.name = $"{camera.name}.VXGI";
+      _command.BeginSample(_command.name);
+      renderContext.ExecuteCommandBuffer(_command);
+      _command.Clear();
 
       if (camera.cameraType == CameraType.Game) {
         if (camera.TryGetComponent<VXGI>(out var vxgi) && vxgi.isActiveAndEnabled) {
@@ -73,11 +79,15 @@ public class VXGIRenderPipeline : RenderPipeline {
 #endif
       }
 
+      _command.EndSample(_command.name);
+      renderContext.ExecuteCommandBuffer(_command);
+      _command.Clear();
+
       EndCameraRendering(renderContext, camera);
+      renderContext.Submit();
     }
 
     EndFrameRendering(renderContext, cameras);
-
     renderContext.Submit();
   }
 
@@ -99,12 +109,19 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     renderContext.SetupCameraProperties(camera);
 
-    _command.ClearRenderTarget(true, true, camera.backgroundColor);
+    _command.ClearRenderTarget(
+      (camera.clearFlags & CameraClearFlags.Depth) != 0,
+      camera.clearFlags == CameraClearFlags.Color,
+      camera.backgroundColor
+    );
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
     renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
-    renderContext.DrawSkybox(camera);
+
+    if (camera.clearFlags == CameraClearFlags.Skybox) renderContext.DrawSkybox(camera);
+
+    renderContext.InvokeOnRenderObjectCallback();
 
     TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
   }
