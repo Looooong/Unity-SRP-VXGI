@@ -100,12 +100,16 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     renderContext.SetupCameraProperties(camera);
 
-    _command.ClearRenderTarget(true, true, camera.backgroundColor);
+    _command.ClearRenderTarget(
+      (camera.clearFlags & CameraClearFlags.Depth) != 0,
+      camera.clearFlags == CameraClearFlags.Color,
+      camera.backgroundColor
+    );
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
     renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
-    renderContext.DrawSkybox(camera);
+    if (camera.clearFlags == CameraClearFlags.Skybox) renderContext.DrawSkybox(camera);
     renderContext.InvokeOnRenderObjectCallback();
 
     TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
