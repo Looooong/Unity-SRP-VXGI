@@ -49,6 +49,7 @@ public class VXGIRenderPipeline : RenderPipeline {
     BeginFrameRendering(renderContext, cameras);
 
     foreach (var camera in cameras) {
+      Camera.SetupCurrent(camera);
       BeginCameraRendering(renderContext, camera);
 
       if (camera.cameraType == CameraType.Game) {
@@ -74,10 +75,10 @@ public class VXGIRenderPipeline : RenderPipeline {
       }
 
       EndCameraRendering(renderContext, camera);
+      renderContext.Submit();
     }
 
     EndFrameRendering(renderContext, cameras);
-
     renderContext.Submit();
   }
 
