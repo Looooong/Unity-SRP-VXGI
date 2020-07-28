@@ -106,6 +106,7 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
     renderContext.DrawSkybox(camera);
+    renderContext.InvokeOnRenderObjectCallback();
 
     TriggerCameraCallback(camera, "OnPostRender", Camera.onPostRender);
   }

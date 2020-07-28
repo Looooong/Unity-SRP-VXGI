@@ -116,6 +116,8 @@ public class VXGIRenderer : System.IDisposable {
 
     RenderGizmos(renderContext, camera, GizmoSubset.PreImageEffects);
 
+    TriggerOnRenderObject(renderContext, camera);
+
     TriggerCameraEvent(renderContext, camera, CameraEvent.BeforeImageEffects, vxgi);
     RenderPostProcessing(renderContext, camera);
     _command.SetGlobalVector(ShaderIDs.BlitViewport, new Vector4(camera.rect.width, camera.rect.height, camera.rect.xMin, camera.rect.yMin));
@@ -283,6 +285,14 @@ public class VXGIRenderer : System.IDisposable {
     _eventCommand.EndSample(_eventCommand.name);
     renderContext.ExecuteCommandBuffer(_eventCommand);
     _eventCommand.Clear();
+  }
+
+  void TriggerOnRenderObject(ScriptableRenderContext renderContext, Camera camera) {
+    _command.SetRenderTarget(ShaderIDs.FrameBuffer, (RenderTargetIdentifier)ShaderIDs._CameraDepthTexture);
+    renderContext.ExecuteCommandBuffer(_command);
+    _command.Clear();
+
+    renderContext.InvokeOnRenderObjectCallback();
   }
 
   void UpdatePostProcessingLayer(ScriptableRenderContext renderContext, Camera camera, VXGI vxgi) {
