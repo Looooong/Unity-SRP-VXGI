@@ -10,6 +10,7 @@
 ### Added
 
 - Added indirect lighting modifier.
+- Added support for `Camera.current`.
 
 ### Changed
 
