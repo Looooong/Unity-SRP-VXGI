@@ -22,11 +22,11 @@ class VXGIMipmapDebug : MonoBehaviour {
 
   void OnEnable() {
     _command = new CommandBuffer { name = "VXGI.Debug.Mipmap" };
-    _camera.AddCommandBuffer(CameraEvent.AfterImageEffects, _command);
+    _camera.AddCommandBuffer(CameraEvent.AfterForwardAlpha, _command);
   }
 
   void OnDisable() {
-    _camera.RemoveCommandBuffer(CameraEvent.AfterImageEffects, _command);
+    _camera.RemoveCommandBuffer(CameraEvent.AfterForwardAlpha, _command);
     _command.Dispose();
   }
 
@@ -58,7 +58,6 @@ class VXGIMipmapDebug : MonoBehaviour {
 
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, Mathf.Max(rayTracingStep, .001f));
     _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.voxelSpaceCenter).normalized);
-    _command.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
   }
 }
