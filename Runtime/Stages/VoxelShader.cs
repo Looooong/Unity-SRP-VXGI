@@ -39,8 +39,6 @@ public class VoxelShader : System.IDisposable {
 
     _voxelFragmentsCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
 
-    ReloadKernels();
-
     _descriptor = new RenderTextureDescriptor() {
       colorFormat = RenderTextureFormat.RInt,
       dimension = TextureDimension.Tex3D,
@@ -148,9 +146,7 @@ public class VoxelShader : System.IDisposable {
   void Setup() {
     _command.BeginSample(sampleSetup);
 
-#if UNITY_EDITOR
-    ReloadKernels();
-#endif
+    UpdateKernels();
 
     _descriptor.height = _descriptor.width = _descriptor.volumeDepth = (_vxgi.AnisotropicVoxel ? 2 : 1) * (int)_vxgi.resolution;
 
@@ -163,7 +159,7 @@ public class VoxelShader : System.IDisposable {
     _command.EndSample(sampleSetup);
   }
 
-  void ReloadKernels() {
+  void UpdateKernels() {
     _kernelAggregate = 0;
     _kernelClear = 8;
     _kernelRender = 12;
