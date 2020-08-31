@@ -35,9 +35,7 @@ internal static class ShaderIDs {
   internal static readonly int LowResDepth = Shader.PropertyToID("LowResDepth");
   internal static readonly int MipmapLevel = Shader.PropertyToID("MipmapLevel");
   internal static readonly int NumThreads = Shader.PropertyToID("NumThreads");
-  internal static readonly int RadianceBA = Shader.PropertyToID("RadianceBA");
-  internal static readonly int RadianceCount = Shader.PropertyToID("RadianceCount");
-  internal static readonly int RadianceRG = Shader.PropertyToID("RadianceRG");
+  internal static readonly int FragmentPointers = Shader.PropertyToID("FragmentPointers");
   internal static readonly int RayTracingStep = Shader.PropertyToID("RayTracingStep");
   internal static readonly int Resolution = Shader.PropertyToID("Resolution");
   internal static readonly int Source = Shader.PropertyToID("Source");

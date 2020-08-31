@@ -65,7 +65,16 @@ internal class Voxelizer : System.IDisposable {
       _command.SetRenderTarget(ShaderIDs.Dummy, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
       _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
       _command.SetGlobalInt(ShaderIDs.VXGI_CascadeIndex, cascadeIndex);
+
+      _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * _vxgi.bound);
+      _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, _vxgi.bound);
+      _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, _vxgi.CascadesCount);
+      _command.SetGlobalMatrix(ShaderIDs.VoxelToWorld, _vxgi.voxelToWorld);
+      _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);
+
+
       _command.SetRandomWriteTarget(1, _vxgi.voxelBuffer, cascadeIndex > 0);
+      _command.SetRandomWriteTarget(2, _vxgi.voxelPointerBuffer);
       _command.SetViewProjectionMatrices(_camera.worldToCameraMatrix, _camera.projectionMatrix);
       renderContext.ExecuteCommandBuffer(_command);
       _command.Clear();
@@ -113,8 +122,6 @@ internal class Voxelizer : System.IDisposable {
     }
 
     int newResolution = (int)_vxgi.resolution;
-
-    if (_vxgi.AnisotropicVoxel) newResolution *= 2;
 
     if (_resolution != newResolution) {
       _cameraDescriptor.height = _cameraDescriptor.width = _resolution = newResolution;

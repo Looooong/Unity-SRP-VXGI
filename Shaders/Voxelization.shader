@@ -18,12 +18,15 @@ Shader "Hidden/VXGI/Voxelization"
       #pragma geometry geom
       #pragma fragment frag
       #pragma multi_compile _ VXGI_CASCADES
+      #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
       #pragma shader_feature _EMISSION
       #pragma shader_feature_local _METALLICGLOSSMAP
+      #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
 
       #include "UnityCG.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Voxel.cginc"
 
       #define AXIS_X 0
       #define AXIS_Y 1
@@ -41,7 +44,19 @@ Shader "Hidden/VXGI/Voxelization"
       sampler2D _EmissionMap;
 
       uint VXGI_CascadeIndex;
-      AppendStructuredBuffer<VoxelData> VoxelBuffer;
+      RWStructuredBuffer<VoxelData> VoxelBuffer;
+      RWTexture3D<int> VoxelPointerBuffer;
+
+
+#ifdef VXGI_CASCADES
+      static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
+#else
+      static uint3 VXGI_TexelResolution = Resolution;
+#endif
+
+      static float3 VXGI_DoubleTexelResolution = 2.0 * VXGI_TexelResolution;
+      static float3 VXGI_DoubleTexelResolutionMinus = 2.0 * VXGI_TexelResolution - 0.000001;
+      static float3 VXGI_TexelResolutionMinus = VXGI_TexelResolution - 0.000001;
 
       struct v2g
       {
@@ -151,6 +166,26 @@ Shader "Hidden/VXGI/Voxelization"
         return position;
       }
 
+
+      float4 CalculateLitColor(float3 position, float3 normal, float4 color, float3 emission)
+      {
+        VoxelLightingData lightingData;
+        lightingData.color = color.rgb;
+        lightingData.voxelPosition = position;
+        lightingData.vecN = normal;
+        lightingData.Initialize();
+
+        color.rgb = emission + VoxelRadiance(lightingData);
+        color.a = saturate(color.a);
+
+        return color;
+      }
+
+      float4 Premul(float4 col)
+      {
+        return float4(col.rgb * col.a, col.a);
+      }
+
       fixed frag(g2f i) : SV_TARGET
       {
         #ifdef _METALLICGLOSSMAP
@@ -166,21 +201,48 @@ Shader "Hidden/VXGI/Voxelization"
         #else
           float3 emission = 0.0;
         #endif
+        emission += ShadeSH9(float4(i.normal, 1.0));
 
-        float3 voxelPosition = float3(i.position.xy / Resolution, i.position.z);
+        float3 voxelPosition = RestoreAxis(float3(i.position.xy / Resolution, i.position.z), i.axis);
+
+        float4 color = mad(-0.5, metallic, 1.0) * _Color * tex2Dlod(_MainTex, float4(i.uv, 0.0, 0.0));
 
         VoxelData d;
         d.Initialize();
-        d.SetPosition(RestoreAxis(voxelPosition, i.axis));
+        d.SetPosition(voxelPosition);
         d.SetNormal(i.normal);
-        d.SetColor(mad(-0.5, metallic, 1.0) * _Color * tex2Dlod(_MainTex, float4(i.uv, 0.0, 0.0)));
-        d.SetEmission(emission + ShadeSH9(float4(i.normal, 1.0)));
+
+        float3 position = voxelPosition;
+#ifdef VXGI_CASCADES
+        int level = VXGI_CascadeIndex;
+        position = TransformCascadeToVoxelPosition(position, level);
+
+#else
+        position *= Resolution;
+#endif
+        float4 finalColor = CalculateLitColor(position, i.normal, color, emission);
+#if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
+        finalColor = Premul(finalColor);
+#else
+        finalColor.a = 1;
+#endif
+        d.SetColor(finalColor);
+
 
 #ifdef VXGI_CASCADES
-        d.SetCascadeIndex(VXGI_CascadeIndex);
+        position = TransformVoxelToTexelPosition(position, level);
+        position = min(VXGI_TexelResolution * position, VXGI_TexelResolutionMinus);
+#else
+        position = min(position, VXGI_TexelResolutionMinus);
 #endif
 
-        VoxelBuffer.Append(d);
+        uint prevCounter = 0;
+        uint counter = VoxelBuffer.IncrementCounter();
+
+        InterlockedExchange(VoxelPointerBuffer[position], counter, prevCounter);
+        d.SetPointer(prevCounter);
+
+        VoxelBuffer[counter] = d;
 
         return 0.0;
       }

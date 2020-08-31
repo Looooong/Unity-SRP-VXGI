@@ -1,7 +1,7 @@
 #ifndef VXGI_VOXEL_DATA
   #define VXGI_VOXEL_DATA
 
-  #define VOXEL_DATA_UINTS 7
+  #define VOXEL_DATA_UINTS 6
 
   struct VoxelData
   {
@@ -11,14 +11,23 @@
     // rawData[2] : (16) Normal.y   | (16) Normal.z
     // rawData[3] : (16) Color.r    | (16) Color.g
     // rawData[4] : (16) Color.b    | (16) Color.a
-    // rawData[5] : (16) Emission.r | (16) Emission.g
-    // rawData[6] : (16) Emission.b | (16) Cascade Index
-    uint rawData[VOXEL_DATA_UINTS]; // 7 * 4 bytes
+    // rawData[5] : (32) linked-list pointer
+    uint rawData[VOXEL_DATA_UINTS]; // 6 * 4 bytes
 
     void Initialize()
     {
       [unroll]
       for (uint i = 0; i < VOXEL_DATA_UINTS; i++) rawData[i] = 0;
+    }
+
+    uint GetPointer()
+    {
+      return rawData[5];
+    }
+
+    void SetPointer(uint prev)
+    {
+      rawData[5] = prev;
     }
 
     float3 GetPosition()
@@ -78,37 +87,6 @@
       uint4 raw = f32tof16(color);
       rawData[3] = raw[0] | (raw[1] << 16);
       rawData[4] = raw[2] | (raw[3] << 16);
-    }
-
-    float3 GetEmission()
-    {
-      return f16tof32(
-        uint4(
-          rawData[5],
-          rawData[5] >> 16,
-          rawData[6],
-          0
-        )
-      ).rgb;
-    }
-
-    void SetEmission(float3 emission)
-    {
-      uint4 raw = f32tof16(float4(emission, 0.0));
-      rawData[5] = raw[0] | (raw[1] << 16);
-      rawData[6] &= 0xffff0000;
-      rawData[6] |= raw[2];
-    }
-
-    uint GetCascadeIndex()
-    {
-      return rawData[6] >> 16u;
-    }
-
-    void SetCascadeIndex(uint index)
-    {
-      rawData[6] &= 0x0000ffff;
-      rawData[6] |= index << 16u;
     }
   };
 #endif

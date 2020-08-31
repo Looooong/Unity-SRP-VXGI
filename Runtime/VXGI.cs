@@ -59,6 +59,9 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public ComputeBuffer voxelBuffer {
     get { return _voxelBuffer; }
   }
+  public RenderTexture voxelPointerBuffer{
+    get { return _voxelPointerBuffer; }
+  }
   public Matrix4x4 voxelToWorld {
     get { return Matrix4x4.TRS(origin, Quaternion.identity, Vector3.one * voxelSize); }
   }
@@ -97,6 +100,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   Camera _camera;
   CommandBuffer _command;
   ComputeBuffer _voxelBuffer;
+  RenderTexture _voxelPointerBuffer;
   Mipmapper _mipmapper;
   Parameterizer _parameterizer;
   RenderTexture[] _radiances;
@@ -118,6 +122,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     UpdateResolution();
     SetupShaderKeywords(renderContext);
+    SetupShaderVariables(renderContext);
 
     float time = Time.unscaledTime;
     bool tracingThrottled = throttleTracing;
@@ -165,6 +170,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     Voxelizer.Voxelize(renderContext, renderer);
     _voxelShader.Render(renderContext);
+    _voxelBuffer.SetCounterValue(0);
 
     if (!CascadesEnabled) _mipmapper.Filter(renderContext);
 
@@ -237,6 +243,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _voxelShader = new VoxelShader(this);
     _lastVoxelSpaceCenter = voxelSpaceCenter;
 
+    UpdateResolutionVars();
     CreateBuffers();
     CreateTextureDescriptor();
     CreateTextures();
@@ -256,11 +263,24 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   #region Buffers
   void CreateBuffers() {
-    _voxelBuffer = new ComputeBuffer((int)(BufferScale * volume), VoxelData.size, ComputeBufferType.Append);
+    _voxelBuffer = new ComputeBuffer((int)(BufferScale * volume), VoxelData.size, ComputeBufferType.Counter);
+    _voxelPointerBuffer = new RenderTexture(new RenderTextureDescriptor()
+    {
+      colorFormat = RenderTextureFormat.RInt,
+      dimension = TextureDimension.Tex3D,
+      enableRandomWrite = true,
+      msaaSamples = 1,
+      sRGB = false,
+      height = _resolution,
+      width = _resolution,
+      volumeDepth = _resolution * CascadesCount
+    });
+    _voxelPointerBuffer.enableRandomWrite = true;
   }
 
   void DisposeBuffers() {
     _voxelBuffer.Dispose();
+    _voxelPointerBuffer.Release();
   }
 
   void ResizeBuffers() {
@@ -317,7 +337,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
   #endregion
 
-  void UpdateResolution() {
+  bool UpdateResolutionVars() {
     bool resize = false;
 
     if (AnisotropicVoxel != anisotropicVoxel) {
@@ -331,9 +351,10 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     }
 
     cascadesCount = Mathf.Clamp(cascadesCount, MinCascadesCount, MaxCascadesCount);
+    int realCascadesCount = CascadesEnabled ? cascadesCount : 1;
 
-    if (CascadesCount != cascadesCount && CascadesEnabled) {
-      CascadesCount = cascadesCount;
+    if (CascadesCount != realCascadesCount) {
+      CascadesCount = realCascadesCount;
       resize = true;
     }
 
@@ -345,8 +366,12 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       _resolution = newResolution;
       resize = true;
     }
+    return resize;
+  }
 
-    if (resize) {
+  void UpdateResolution() {
+
+    if (UpdateResolutionVars()) {
       ResizeBuffers();
       ResizeTextures();
     }
