@@ -38,7 +38,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public float indirectSpecularModifier = 1f;
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
-  [Range(1f, 100f)]
+  [Range(1f, 200f)]
   public float bound = 10f;
   public bool throttleTracing = false;
   [Range(1f, 100f)]
