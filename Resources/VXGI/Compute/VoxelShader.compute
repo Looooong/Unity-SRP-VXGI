@@ -35,9 +35,11 @@ void CSRender(uint3 id : SV_DispatchThreadID)
   float count = 0;
 #ifdef VXGI_ANISOTROPIC_VOXEL
   float4 finalColors[6];
-  [unroll]
-  for (uint side = 0u; side < 6u; side++) {
-    finalColors[side] = float4(0, 0, 0, 0);
+  {
+    [unroll]
+    for (uint side = 0u; side < 6u; side++) {
+      finalColors[side] = float4(0, 0, 0, 0);
+    }
   }
 
   while (pointer != 0 && count < LOOP_LIMIT)
@@ -60,15 +62,17 @@ void CSRender(uint3 id : SV_DispatchThreadID)
 
   float4 invcount = float4(float(3.1415).xxx, 1) / max(1, count);
 
-  [unroll]
-  for (uint side = 0u; side < 6u; side++) {
-    float4 finalColor = finalColors[side];
+  {
+    [unroll]
+    for (uint side = 0u; side < 6u; side++) {
+      float4 finalColor = finalColors[side];
 
-    uint3 uvw = uint3(id.x, mad(Resolution, side, id.y), id.z);
+      uint3 uvw = uint3(id.x, mad(Resolution, side, id.y), id.z);
 
-    finalColor *= invcount;
+      finalColor *= invcount;
 
-    Target[uvw] = finalColor;
+      Target[uvw] = finalColor;
+    }
   }
 #else //VXGI_ANISOTROPIC_VOXEL
   float4 finalColor = float4(0, 0, 0, 0);

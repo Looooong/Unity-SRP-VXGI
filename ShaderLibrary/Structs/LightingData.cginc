@@ -8,6 +8,7 @@
     // Positions
     float3 voxelPosition;
     float3 worldPosition;
+    float2 screenPosition;
 
     // Colors
     float3 diffuseColor;

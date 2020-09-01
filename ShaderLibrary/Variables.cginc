@@ -8,6 +8,9 @@
   float3 VXGI_VolumeCenter;
   int VXGI_CascadesCount;
   uint Resolution;
+  uint BinaryResolution;
+  uint StepMapResolution;
+  float BinaryVoxelSize;
   uint LightCount;
   float4x4 VoxelToWorld;
   float4x4 WorldToVoxel;

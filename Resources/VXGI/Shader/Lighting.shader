@@ -24,6 +24,7 @@ Shader "Hidden/VXGI/Lighting"
 
       float4 worldPosition = mul(ClipToWorld, float4(mad(2.0, i.uv, -1.0), DEPTH_TO_CLIP_Z(depth), 1.0));
       data.worldPosition = worldPosition.xyz / worldPosition.w;
+      data.screenPosition = i.uv;
 
       float3 gBuffer0 = _CameraGBufferTexture0.Sample(point_clamp_sampler, i.uv);
       float4 gBuffer1 = _CameraGBufferTexture1.Sample(point_clamp_sampler, i.uv);

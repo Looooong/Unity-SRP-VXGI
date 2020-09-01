@@ -38,8 +38,15 @@ internal static class ShaderIDs {
   internal static readonly int FragmentPointers = Shader.PropertyToID("FragmentPointers");
   internal static readonly int RayTracingStep = Shader.PropertyToID("RayTracingStep");
   internal static readonly int Resolution = Shader.PropertyToID("Resolution");
+  internal static readonly int BinaryResolution = Shader.PropertyToID("BinaryResolution");
+  internal static readonly int StepMapResolution = Shader.PropertyToID("StepMapResolution");
+  internal static readonly int BinaryVoxelSize = Shader.PropertyToID("BinaryVoxelSize");
   internal static readonly int Source = Shader.PropertyToID("Source");
   internal static readonly int Target = Shader.PropertyToID("Target");
+  internal static readonly int TargetDownscale = Shader.PropertyToID("TargetDownscale");
+  internal static readonly int StepMap = Shader.PropertyToID("StepMap");
+  internal static readonly int StepMapFine2x2x2Encode = Shader.PropertyToID("StepMapFine2x2x2Encode");
+  internal static readonly int Binary = Shader.PropertyToID("Binary");
   internal static readonly int VoxelBuffer = Shader.PropertyToID("VoxelBuffer");
   internal static readonly int VoxelToWorld = Shader.PropertyToID("VoxelToWorld");
   internal static readonly int VXGI_CascadeIndex = Shader.PropertyToID("VXGI_CascadeIndex");

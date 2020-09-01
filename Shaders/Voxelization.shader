@@ -19,6 +19,8 @@ Shader "Hidden/VXGI/Voxelization"
       #pragma fragment frag
       #pragma multi_compile _ VXGI_CASCADES
       #pragma multi_compile _ VXGI_ANISOTROPIC_VOXEL
+      #pragma multi_compile _ VXGI_COLOR
+      #pragma multi_compile _ VXGI_BINARY
       #pragma shader_feature _EMISSION
       #pragma shader_feature_local _METALLICGLOSSMAP
       #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
@@ -27,6 +29,7 @@ Shader "Hidden/VXGI/Voxelization"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Voxel.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BitManip.cginc"
 
       #define AXIS_X 0
       #define AXIS_Y 1
@@ -47,6 +50,8 @@ Shader "Hidden/VXGI/Voxelization"
       RWStructuredBuffer<VoxelData> VoxelBuffer;
       RWTexture3D<int> VoxelPointerBuffer;
 
+      RWTexture3D<float> VoxelBinaryBuffer;
+
 
 #ifdef VXGI_CASCADES
       static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
@@ -63,6 +68,7 @@ Shader "Hidden/VXGI/Voxelization"
         float4 vertex : POSITION;
         float3 normal : NORMAL;
         float2 uv : TEXCOORD;
+        float3 worldPos : TEXCOORD1;
       };
 
       struct g2f
@@ -71,12 +77,14 @@ Shader "Hidden/VXGI/Voxelization"
         float3 normal : NORMAL;
         float2 uv : TEXCOORD0;
         float axis : TEXCOORD1; // Projection axis
+        float3 worldPos : TEXCOORD2;
       };
 
       v2g vert(appdata_base v)
       {
         v2g o;
         o.vertex = UnityObjectToClipPos(v.vertex);
+        o.worldPos = mul(unity_ObjectToWorld, float4(v.vertex.xyz,1)).xyz;
         o.normal = UnityObjectToWorldNormal(v.normal);
         o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 
@@ -137,6 +145,7 @@ Shader "Hidden/VXGI/Voxelization"
 #endif
 
           o.normal = i[j].normal;
+          o.worldPos = i[j].worldPos;
           o.axis = axis;
           o.uv = i[j].uv;
 
@@ -167,11 +176,12 @@ Shader "Hidden/VXGI/Voxelization"
       }
 
 
-      float4 CalculateLitColor(float3 position, float3 normal, float4 color, float3 emission)
+      float4 CalculateLitColor(float3 position, float3 worldPosition, float3 normal, float4 color, float3 emission)
       {
         VoxelLightingData lightingData;
         lightingData.color = color.rgb;
         lightingData.voxelPosition = position;
+        lightingData.worldPosition = worldPosition;
         lightingData.vecN = normal;
         lightingData.Initialize();
 
@@ -220,7 +230,7 @@ Shader "Hidden/VXGI/Voxelization"
 #else
         position *= Resolution;
 #endif
-        float4 finalColor = CalculateLitColor(position, i.normal, color, emission);
+        float4 finalColor = CalculateLitColor(position, i.worldPos, i.normal, color, emission);
 #if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
         finalColor = Premul(finalColor);
 #else
@@ -235,7 +245,7 @@ Shader "Hidden/VXGI/Voxelization"
 #else
         position = min(position, VXGI_TexelResolutionMinus);
 #endif
-
+#ifdef VXGI_COLOR
         uint prevCounter = 0;
         uint counter = VoxelBuffer.IncrementCounter();
 
@@ -243,6 +253,10 @@ Shader "Hidden/VXGI/Voxelization"
         d.SetPointer(prevCounter);
 
         VoxelBuffer[counter] = d;
+#endif
+#ifdef VXGI_BINARY
+        VoxelBinaryBuffer[position] = 1;
+#endif
 
         return 0.0;
       }

@@ -13,7 +13,7 @@ public struct LightSource {
   public float spotFactor; // 1 * 4 bytes
   public uint type; // 1 * 4 bytes
 
-  public LightSource(VisibleLight light, VXGI vxgi) {
+  public LightSource(VisibleLight light, Voxelizer vxgi) {
     color = (Vector4)light.finalColor;
     direction = light.localToWorldMatrix.GetColumn(2);
     worldPosition = light.localToWorldMatrix.GetColumn(3);
@@ -21,12 +21,8 @@ public struct LightSource {
     spotCos = 0f;
     spotFactor = 0f;
     type = (uint)light.lightType;
-
-    if (vxgi.CascadesEnabled) {
-      voxelPosition = (worldPosition - vxgi.origin) / vxgi.bound;
-    } else {
-      voxelPosition = vxgi.worldToVoxel * new Vector4(worldPosition.x, worldPosition.y, worldPosition.z, 1f);
-    }
+    
+    voxelPosition = (worldPosition - vxgi.origin) / vxgi.Bound;
 
     if (light.lightType == LightType.Spot) {
       float halfSpotRadian = .5f * light.spotAngle * Mathf.Deg2Rad;
