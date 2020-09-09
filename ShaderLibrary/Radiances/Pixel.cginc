@@ -55,7 +55,7 @@ float3 DirectPixelRadiance(LightingData data)
     }
   }
 
-  return radiance;
+  return data.diffuseColor * radiance;
 }
 
 float3 IndirectSpecularPixelRadiance(LightingData data)
@@ -66,7 +66,7 @@ float3 IndirectDiffusePixelRadiance(LightingData data)
 {
   if (TextureSDF(data.voxelPosition) < 0.0) return 0.0;
 
-  float3 radiance = StratifiedHemisphereSample(data.worldPosition, normalize(data.vecN), 25, 3, hash(data.screenPosition));
+  float3 radiance = StratifiedHemisphereSample(data.worldPosition, normalize(data.vecN), 25, PerPixelGIRayCountSqrt, hash(data.screenPosition + NoiseNum));
 
 
   return data.diffuseColor * radiance;

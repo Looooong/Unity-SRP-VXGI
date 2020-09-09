@@ -56,4 +56,11 @@ internal static class ShaderIDs {
   internal static readonly int VXGI_VolumeSize = Shader.PropertyToID("VXGI_VolumeSize");
   internal static readonly int VXGI_VoxelFragmentsCountBuffer = Shader.PropertyToID("VXGI_VoxelFragmentsCountBuffer");
   internal static readonly int WorldToVoxel = Shader.PropertyToID("WorldToVoxel");
+  internal static readonly int PerPixelGIRayCount = Shader.PropertyToID("PerPixelGIRayCount");
+  internal static readonly int PerVoxelGIRayCount = Shader.PropertyToID("PerVoxelGIRayCount");
+  //Useful for stratified sampling
+  internal static readonly int PerPixelGIRayCountSqrt = Shader.PropertyToID("PerPixelGIRayCountSqrt");
+  internal static readonly int PerVoxelGIRayCountSqrt = Shader.PropertyToID("PerVoxelGIRayCountSqrt");
+  internal static readonly int TempSkyColor = Shader.PropertyToID("TempSkyColor");
+  internal static readonly int NoiseNum = Shader.PropertyToID("NoiseNum");
 }

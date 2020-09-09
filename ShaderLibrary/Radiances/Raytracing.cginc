@@ -101,7 +101,7 @@ raycastResult VoxelRaycast(float3 rayPos, float3 rayDir, int maxSteps, float max
     if (dot(normPos - saturate(normPos), float3(1, 1, 1)) != 0)
     {
       //Sample sky-light
-      result.color = float4(0.6, 0.86, 1, 1) * 0.3;
+      result.color = TempSkyColor;//float4(0.6, 0.86, 1, 1) * 0.3;
       result.sky = true;
       result.distlimit = false;
       result.normalizedPosition = normPos;
@@ -199,6 +199,7 @@ raycastResult VoxelRaycastBias(float3 worldPos, float3 rayDir, float3 worldNor, 
 
 float3 StratifiedHemisphereSample(float3 worldPos, float3 worldNor, int maxSteps, uint qual, float rand)
 {
+  if (qual <= 0)return float3(0,0,0);
   int samples = qual * qual;
   //Create rotation basis for hemisphere 
   //(so I can generate random directions on a hemisphere then rotate them to follow the normal)

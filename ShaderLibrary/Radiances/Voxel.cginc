@@ -61,7 +61,7 @@ float3 IndirectVoxelRadiance(VoxelLightingData data)
 {
   if (TextureSDF(data.voxelPosition) < 0.0) return 0.0;
 
-  float3 radiance = StratifiedHemisphereSample(data.worldPosition, normalize(data.vecN), 25, 1, hash(data.worldPosition));
+  float3 radiance = StratifiedHemisphereSample(data.worldPosition, normalize(data.vecN), 25, PerVoxelGIRayCountSqrt, hash(data.worldPosition));
 
   return radiance;
 }

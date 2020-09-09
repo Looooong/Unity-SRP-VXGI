@@ -2,6 +2,8 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEditor;
+using System;
 
 [ExecuteAlways]
 [RequireComponent(typeof(Camera))]
@@ -33,7 +35,7 @@ public class VXGI : MonoBehaviour {
   public int cascadesCount = MinCascadesCount;
   public Vector3 center;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
-  public Resolution resolution = Resolution.Medium;
+  public Resolution resolution = Resolution.VeryHigh;
   [Tooltip(
 @"Box: fast, 2^n voxel resolution.
 Gaussian 3x3x3: fast, 2^n+1 voxel resolution (recommended).
@@ -48,8 +50,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     Cones,
     Rays
   };
-  public LightingMethod lightingMethod = LightingMethod.Cones;
-  public BinaryResolution binaryResolution = BinaryResolution.Decent;
+  public LightingMethod lightingMethod = LightingMethod.Rays;
+  public BinaryResolution binaryResolution = BinaryResolution.Medium;
 
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
@@ -59,6 +61,12 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   [Range(1f, 100f)]
   public float tracingRate = 10f;
   public bool followCamera = false;
+
+  int NoiseNum = 0;
+  public bool AnimateNoise = false;
+  public int PerPixelGIRays = 4;
+  public int PerVoxelGIRays = 1;
+  public Color AmbientColor;
 
   public bool resolutionPlusOne {
     get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
@@ -71,12 +79,20 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   Voxelizer colorVoxelizer;
   Voxelizer binaryVoxelizer;
   internal Voxelizer ColorVoxelizer { get { return colorVoxelizer; } }
-  internal Voxelizer BinaryVoxelizer { get { return ((int)binaryResolution == (int)resolution || binaryVoxelizer==null) ? colorVoxelizer : binaryVoxelizer; } }
+  internal Voxelizer BinaryVoxelizer { get { return ((int)binaryResolution == (int)clampedColorResolution || binaryVoxelizer==null) ? colorVoxelizer : binaryVoxelizer; } }
 
-  bool RequiresColors { get { return true || RequiresColorMipmaps; } }
-  bool RequiresColorMipmaps { get { return lightingMethod == LightingMethod.Cones; } }
-  bool RequiresBinary { get { return lightingMethod == LightingMethod.Rays || RequiresBinaryStepMap; } }
-  bool RequiresBinaryStepMap { get { return lightingMethod == LightingMethod.Rays; } }
+  int clampedColorResolution
+  {
+    get
+    {
+      return (RequiresBinary && (int)binaryResolution < (int)resolution) ? (int)binaryResolution : (int)resolution;
+    }
+  }
+
+  public bool RequiresColors { get { return true || RequiresColorMipmaps; } }
+  public bool RequiresColorMipmaps { get { return lightingMethod == LightingMethod.Cones; } }
+  public bool RequiresBinary { get { return lightingMethod == LightingMethod.Rays || RequiresBinaryStepMap; } }
+  public bool RequiresBinaryStepMap { get { return lightingMethod == LightingMethod.Rays; } }
 
   float _previousTrace = 0f;
   Camera _camera;
@@ -101,6 +117,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     SetupShaderKeywords(renderContext);
     SetupShaderVariables(renderContext);
 
+    if (AnimateNoise)
+      NoiseNum += 1;
     float time = Time.unscaledTime;
     bool tracingThrottled = throttleTracing;
 
@@ -191,10 +209,16 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _command.SetGlobalTexture(ShaderIDs.StepMapFine2x2x2Encode, BinaryVoxelizer.StepMapper?.StepMapFine2x2x2Encode);
     _command.SetGlobalTexture(ShaderIDs.Binary, BinaryVoxelizer.binary);
 
+    _command.SetGlobalColor(ShaderIDs.TempSkyColor, AmbientColor);
     _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
     _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * bound);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, bound);
+    _command.SetGlobalFloat(ShaderIDs.NoiseNum, (float)NoiseNum);
+    _command.SetGlobalInt(ShaderIDs.PerPixelGIRayCount, PerPixelGIRays);
+    _command.SetGlobalInt(ShaderIDs.PerVoxelGIRayCount, PerVoxelGIRays);
+    _command.SetGlobalInt(ShaderIDs.PerPixelGIRayCountSqrt, (int)Math.Sqrt(PerPixelGIRays));
+    _command.SetGlobalInt(ShaderIDs.PerVoxelGIRayCountSqrt, (int)Math.Sqrt(PerVoxelGIRays));
     _command.SetGlobalInt(ShaderIDs.Resolution, ColorVoxelizer.ColorStorageResolution.x);
     _command.SetGlobalInt(ShaderIDs.BinaryResolution, BinaryVoxelizer.BinaryStorageResolution.x);
     _command.SetGlobalInt(ShaderIDs.StepMapResolution, BinaryVoxelizer.StepMapper.StepMapStorageResolution.x);
@@ -233,6 +257,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
     colorVoxelizer?.Dispose();
     binaryVoxelizer?.Dispose();
+    colorVoxelizer = null;
+    binaryVoxelizer = null;
     _parameterizer.Dispose();
     _mipmapper.Dispose();
     _command.Dispose();
@@ -247,7 +273,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     {
       colorVoxelizer = new Voxelizer();
     }
-    if (RequiresBinary && (int)resolution == (int)binaryResolution)
+    if (RequiresBinary && (int)clampedColorResolution == (int)binaryResolution)
     {
       if (colorVoxelizer.StepMapper == null)
       {
@@ -273,7 +299,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       colorVoxelizer.VoxelizeColors = RequiresColors;
       colorVoxelizer.AnisotropicColors = anisotropicVoxel;
       colorVoxelizer.VoxelizeBinary = RequiresBinary && binaryVoxelizer == null;
-      colorVoxelizer.Resolution = (int)resolution;
+      colorVoxelizer.Resolution = (int)clampedColorResolution;
       colorVoxelizer.AntiAliasing = (int)antiAliasing;
       colorVoxelizer.Centre = center;
       colorVoxelizer.Bound = bound;
@@ -292,5 +318,84 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
       binaryVoxelizer.Cascades = cascadesCount;
       binaryVoxelizer.UpdateStorage(existenceIsRequired);
     }
+  }
+}
+
+[CustomEditor(typeof(VXGI))]
+public class VXGIEditor : Editor
+{
+  Func<Enum, bool> showEnumValue = ShowEnumValue;
+  // my custom function
+  public static bool ShowEnumValue(Enum lightingMethod)
+  {
+    return (VXGI.LightingMethod)lightingMethod == VXGI.LightingMethod.Rays;
+  }
+  public override void OnInspectorGUI()
+  {
+    var myScript = target as VXGI;
+
+
+    EditorGUILayout.LabelField("Lighting", EditorStyles.boldLabel);
+    myScript.lightingMethod = (VXGI.LightingMethod)EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, showEnumValue, true);// EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, ShowEnumValue, false);
+    myScript.diffuseResolutionScale = EditorGUILayout.Slider("Resolution Scale", myScript.diffuseResolutionScale, 0.1f, 1.0f);
+    myScript.throttleTracing = EditorGUILayout.Toggle("Throttle Tracing", myScript.throttleTracing);
+    if (myScript.throttleTracing)
+      myScript.tracingRate = EditorGUILayout.Slider("Tracing Rate", myScript.tracingRate, 1.0f, 100.0f);
+    if (myScript.lightingMethod == VXGI.LightingMethod.Rays)
+    {
+      myScript.PerPixelGIRays = EditorGUILayout.IntSlider("Per-Pixel GI Quality", (int)Math.Sqrt((double)myScript.PerPixelGIRays), 0, 10);
+      myScript.PerPixelGIRays *= myScript.PerPixelGIRays;
+      if (myScript.PerPixelGIRays == 0)
+        EditorGUILayout.LabelField("Per Pixel: Disabled");
+      else
+        EditorGUILayout.LabelField("Per Pixel: " + myScript.PerPixelGIRays.ToString() + " rays");
+
+      myScript.PerVoxelGIRays = EditorGUILayout.IntSlider("Per-Voxel GI Quality", (int)Math.Sqrt((double)myScript.PerVoxelGIRays), 0, 5);
+      myScript.PerVoxelGIRays *= myScript.PerVoxelGIRays;
+      if (myScript.PerVoxelGIRays == 0)
+        EditorGUILayout.LabelField("Per Voxel: Disabled");
+      else
+        EditorGUILayout.LabelField("Per Voxel: " + myScript.PerVoxelGIRays.ToString() + " rays");
+
+      myScript.AnimateNoise = EditorGUILayout.Toggle("Animate Per-Pixel Noise", myScript.AnimateNoise);
+      myScript.AmbientColor = EditorGUILayout.ColorField("Sky Color", myScript.AmbientColor);
+      myScript.indirectDiffuseModifier = EditorGUILayout.FloatField("Indirect Diffuse Modifier", myScript.indirectDiffuseModifier);
+      GUI.enabled = false;
+        myScript.indirectSpecularModifier = EditorGUILayout.FloatField("Indirect Specular Modifier", myScript.indirectSpecularModifier);
+      myScript.indirectSpecularModifier = 0.0f;
+      GUI.enabled = true;
+    }
+
+
+    EditorGUILayout.LabelField("Voxelization", EditorStyles.boldLabel);
+    GUI.enabled = false;
+      myScript.cascadesCount = EditorGUILayout.IntSlider("Cascades", myScript.cascadesCount, VXGI.MinCascadesCount, VXGI.MaxCascadesCount);
+      myScript.cascadesCount = 1;
+    GUI.enabled = true;
+    myScript.bound = EditorGUILayout.Slider("Bounds", myScript.bound, 0f, 256f);
+
+    myScript.followCamera = EditorGUILayout.Toggle("Follow Camera", myScript.followCamera);
+    GUI.enabled = !myScript.followCamera;
+      myScript.center = EditorGUILayout.Vector3Field("Center", myScript.center);
+    GUI.enabled = true;
+    GUI.enabled = false;
+      myScript.anisotropicVoxel = EditorGUILayout.Toggle("Anistropic Colors", myScript.anisotropicVoxel);
+      myScript.anisotropicVoxel = false;
+    GUI.enabled = true;
+    myScript.resolution = (VXGI.Resolution)EditorGUILayout.EnumPopup("Color Resolution", myScript.resolution);
+    if (myScript.RequiresBinary)
+    {
+      myScript.binaryResolution = (VXGI.BinaryResolution)EditorGUILayout.EnumPopup("Binary Resolution", myScript.binaryResolution);
+
+      if ((int)myScript.binaryResolution < (int)myScript.resolution)
+      {
+        EditorGUILayout.HelpBox("Color resolution must <= to binary resolution.", MessageType.Error);
+      }
+      if ((int)myScript.binaryResolution != (int)myScript.resolution)
+      {
+        EditorGUILayout.HelpBox("Currently there's a slow down when the two resolutions don't match, hoping to improve at some point.", MessageType.Warning);
+      }
+    }
+    myScript.antiAliasing = (VXGI.AntiAliasing)EditorGUILayout.EnumPopup("Anti Aliasing", myScript.antiAliasing);
   }
 }
