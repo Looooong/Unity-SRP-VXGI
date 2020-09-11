@@ -64,7 +64,7 @@ public class StepMapper {
     var binary = _vxgi.binary;
 
     _command.BeginSample(_sampleFilter);
-    _command.SetComputeTextureParam(compute, _kernelFilter, ShaderIDs.Source, binary);
+    _command.SetGlobalTexture(ShaderIDs.Source, binary);
     _command.SetComputeTextureParam(compute, _kernelFilter, ShaderIDs.Target, stepmap);
     _command.SetComputeTextureParam(compute, _kernelFilter, ShaderIDs.TargetDownscale, StepMapFine2x2x2Encode);
     _command.DispatchCompute(compute, _kernelFilter,

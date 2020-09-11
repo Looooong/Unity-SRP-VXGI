@@ -1,6 +1,6 @@
 ﻿#pragma kernel CSGenerate
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BitManip.cginc"
-RWTexture3D<float> Source;
+Texture3D<float> Source;
 RWTexture3D<float> Target;
 RWTexture3D<float> TargetDownscale;
 

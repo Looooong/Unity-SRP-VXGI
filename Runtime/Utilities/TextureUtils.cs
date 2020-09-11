@@ -65,6 +65,7 @@ public static class TextureUtil
       //Debug.Log("Update texture" + desc.width.ToString()+ ", " + desc.height.ToString() + ", " + desc.volumeDepth.ToString() + ", ");
       DisposeTexture(tex);
       tex = new RenderTexture(desc);
+      tex.filterMode = FilterMode.Point;
       tex.Create();
     }
 
