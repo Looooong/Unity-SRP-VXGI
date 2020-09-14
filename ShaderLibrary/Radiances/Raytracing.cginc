@@ -6,6 +6,7 @@
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Sampler.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BitManip.cginc"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Noise.cginc"
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Transformations.cginc"
 
 Texture3D<float> StepMap;
 Texture3D<float> StepMapFine2x2x2Encode;
@@ -71,7 +72,7 @@ struct raycastResult
   }
   void UpdatePositionInfo(float3 startWS)
   {
-    position = normalizedPosition * VXGI_VolumeSize + VXGI_VolumeMin;
+    position = NormalizedVoxelSpaceToWorldSpace(normalizedPosition);
     distance = distance(startWS, position);
   }
 };
@@ -84,7 +85,7 @@ raycastResult VoxelRaycast(float3 rayPos, float3 rayDir, int maxSteps, float max
     result.buckets[iiiiii] = 0;
 
   //Transform the ray into voxel space
-  float3 normPos = (rayPos - VXGI_VolumeMin) / VXGI_VolumeSize;
+  float3 normPos = WorldSpaceToNormalizedVoxelSpace(rayPos);
 
   //Intersection precalcs
   float3 invdir = float3(1.0, 1.0, 1.0) / rayDir;
@@ -97,7 +98,6 @@ raycastResult VoxelRaycast(float3 rayPos, float3 rayDir, int maxSteps, float max
   float rayDist = 0;
   for(int i = 0; i < maxSteps; i ++)
   {
-    //Sample stepping size from half-resolution flat-octree thing
     if (dot(normPos - saturate(normPos), float3(1, 1, 1)) != 0)
     {
       //Sample sky-light
@@ -125,6 +125,7 @@ raycastResult VoxelRaycast(float3 rayPos, float3 rayDir, int maxSteps, float max
     }
 
     float intdist = 0;
+    //Sample stepping size from half-resolution flat-octree thing
     intdist = StepMap.SampleLevel(my_point_clamp_sampler, normPos, 0).r * 255.0;//uint(StepMap.Load(uint4(normPos * StepMapResolution, 0)).r * 255.0);
 
     if (intdist == 1)result.buckets[0] += 1;
@@ -156,8 +157,12 @@ raycastResult VoxelRaycast(float3 rayPos, float3 rayDir, int maxSteps, float max
     rayDist += tinc * dist;
   }
 
-  result.color = Radiance0.Load(uint4(normPos * Resolution, 0));//SampleLevel(RADIANCE_SAMPLER, normPos, 0.0);
-  //result.color.rgb /= max(0.001, result.color.a)
+  //Better results when resolution's don't match, but surprisingly slower
+  //result.color = Radiance0.SampleLevel(RADIANCE_SAMPLER, normPos, 0.0);
+  //result.color.rgb /= max(0.001, result.color.a);
+
+  result.color = Radiance0.Load(uint4(normPos * Resolution, 0));
+
   result.sky = false;
   result.distlimit = false;
   result.normalizedPosition = normPos;

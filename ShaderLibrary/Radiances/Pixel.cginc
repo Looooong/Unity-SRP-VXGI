@@ -46,10 +46,22 @@ float3 DirectPixelRadiance(LightingData data)
     if (influence > 0)
     {
       float shadow = 0;
-      raycastResult raycast = VoxelRaycastBias(data.worldPosition, normalize(data.vecL), normalize(data.vecN), 40, lightSource.type == LIGHT_SOURCE_TYPE_DIRECTIONAL ? 0 : (distance(data.voxelPosition, lightSource.voxelPosition) * BinaryResolution));
-      shadow = (raycast.distlimit || raycast.sky) ? 1 : 0;
-      
-      influence *= shadow;
+      float shadowSamples = lightSource.radius.y;
+      if (shadowSamples > 0)
+      {
+        for (float s = 0; s < shadowSamples; s++)
+        {
+          float3 samplePos = SphereSample(lightSource.type == LIGHT_SOURCE_TYPE_DIRECTIONAL ? data.worldPosition + normalize(data.vecL) * 5 : lightSource.worldposition, lightSource.radius.x, hash3(data.screenPosition * 293.2983 + s * 3.4492));
+          float3 castDir = normalize(samplePos - data.worldPosition);
+          float3 samplePosVoxel = WorldSpaceToNormalizedVoxelSpace(samplePos);
+          raycastResult raycast = VoxelRaycastBias(data.worldPosition, castDir, normalize(data.vecN), 60, lightSource.type == LIGHT_SOURCE_TYPE_DIRECTIONAL ? 0 : (distance(data.voxelPosition, samplePosVoxel) * BinaryResolution));
+          shadow += (raycast.distlimit || raycast.sky) ? 0 : 1;
+        }
+
+        shadow = shadow / (float)shadowSamples;
+      }
+
+      influence *= 1.0 - shadow;
 
       radiance += influence * lightSource.color;
     }

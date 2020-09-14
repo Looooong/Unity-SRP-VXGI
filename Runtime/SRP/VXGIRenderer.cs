@@ -288,7 +288,7 @@ public class VXGIRenderer : System.IDisposable {
       var light = _cullingResults.visibleLights[i];
 
       if (VXGI.SupportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        data[count++] = new LightSource(light, vxgi.ColorVoxelizer);
+        data[count++] = new LightSource(light, vxgi, vxgi.ColorVoxelizer);
       }
     }
 

@@ -30,6 +30,7 @@ Shader "Hidden/VXGI/Voxelization"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelData.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Voxel.cginc"
       #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BitManip.cginc"
+      #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Transformations.cginc"
 
       #define AXIS_X 0
       #define AXIS_Y 1
@@ -223,14 +224,10 @@ Shader "Hidden/VXGI/Voxelization"
         d.SetNormal(i.normal);
 
         float3 position = voxelPosition;
-#ifdef VXGI_CASCADES
-        int level = VXGI_CascadeIndex;
-        position = TransformCascadeToVoxelPosition(position, level);
+        //int level = VXGI_CascadeIndex;
+        //position = TransformCascadeToVoxelPosition(position, level);
 
-#else
-        position *= Resolution;
-#endif
-        float4 finalColor = CalculateLitColor(position, i.worldPos, i.normal, color, emission);
+        float4 finalColor = CalculateLitColor(WorldSpaceToNormalizedVoxelSpace(i.worldPos), i.worldPos, i.normal, color, emission);
 #if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
         finalColor = Premul(finalColor);
 #else
@@ -239,12 +236,8 @@ Shader "Hidden/VXGI/Voxelization"
         d.SetColor(finalColor);
 
 
-#ifdef VXGI_CASCADES
-        position = TransformVoxelToTexelPosition(position, level);
+        //position = TransformVoxelToTexelPosition(position, level);
         position = min(VXGI_TexelResolution * position, VXGI_TexelResolutionMinus);
-#else
-        position = min(position, VXGI_TexelResolutionMinus);
-#endif
 #ifdef VXGI_COLOR
         uint prevCounter = 0;
         uint counter = VoxelBuffer.IncrementCounter();

@@ -69,7 +69,7 @@ public class VoxelShader : System.IDisposable {
     _command.SetComputeMatrixParam(compute, ShaderIDs.VoxelToWorld, _vxgi.voxelToWorld);
     _command.SetComputeMatrixParam(compute, ShaderIDs.WorldToVoxel, _vxgi.worldToVoxel);
 
-    _command.SetComputeVectorParam(compute, ShaderIDs.VXGI_VolumeCenter, _vxgi.voxelSpaceCenter);
+    _command.SetComputeVectorParam(compute, ShaderIDs.VXGI_VolumeCenter, _vxgi.renderedVoxelSpaceCenter);
 
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Target, _vxgi.radiance);
     _command.SetComputeTextureParam(compute, _kernelRender, ShaderIDs.Radiance[0], _vxgi.radiance);

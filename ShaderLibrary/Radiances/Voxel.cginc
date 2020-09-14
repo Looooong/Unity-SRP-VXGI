@@ -68,6 +68,6 @@ float3 IndirectVoxelRadiance(VoxelLightingData data)
 
 float3 VoxelRadiance(VoxelLightingData data)
 {
-  return data.color * (DirectVoxelRadiance(data) + IndirectVoxelRadiance(data));
+  return data.color * (DirectVoxelRadiance(data) + IndirectVoxelRadiance(data)) / 3.1415;
 }
 #endif // VXGI_SHADERLIBRARY_RADIANCES_VOXEL

@@ -15,6 +15,7 @@
     float spotCos;
     float spotFactor;
     uint type;
+    float2 radius;
 
     float Attenuation(float3 otherPosition)
     {

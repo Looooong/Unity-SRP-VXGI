@@ -69,7 +69,9 @@ public class Voxelizer : System.IDisposable {
   {
     get { return voxelSpaceCenter - Vector3.one * .5f * Bound; }
   }
-  public Vector3 voxelSpaceCenter
+
+  public Vector3 renderedVoxelSpaceCenter;
+  Vector3 voxelSpaceCenter
   {
     get
     {
@@ -186,12 +188,6 @@ public class Voxelizer : System.IDisposable {
       _command.SetGlobalInt(ShaderIDs.Resolution, Resolution);
       _command.SetGlobalInt(ShaderIDs.VXGI_CascadeIndex, cascadeIndex);
 
-      _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * Bound);
-      _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, Bound);
-      _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, Cascades);
-      _command.SetGlobalMatrix(ShaderIDs.VoxelToWorld, voxelToWorld);
-      _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
-
       if (VoxelizeColors)
       {
         _command.SetRandomWriteTarget(1, voxelBuffer, cascadeIndex > 0);
@@ -224,6 +220,8 @@ public class Voxelizer : System.IDisposable {
     {
       StepMapper?.Filter(renderContext);
     }
+
+    renderedVoxelSpaceCenter = voxelSpaceCenter;
   }
 
   void CreateCamera() {
@@ -257,7 +255,7 @@ public class Voxelizer : System.IDisposable {
 
     _cameraDescriptor.height = _cameraDescriptor.width = Resolution;
 
-    _camera.transform.position = Centre;
+    _camera.transform.position = voxelSpaceCenter;
   }
 
   void UpdateLightSources(CullingResults cullingResults) {
@@ -268,7 +266,7 @@ public class Voxelizer : System.IDisposable {
       var light = cullingResults.visibleLights[i];
 
       if (VXGI.SupportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        data[LightsourcesCount++] = new LightSource(light, this);
+        data[LightsourcesCount++] = new LightSource(light, null, this);
       }
     }
 
