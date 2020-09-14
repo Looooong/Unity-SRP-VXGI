@@ -28,20 +28,25 @@ internal static class ShaderIDs {
   internal static readonly int Dummy = Shader.PropertyToID("Dummy");
   internal static readonly int FrameBuffer = Shader.PropertyToID("FrameBuffer");
   internal static readonly int IndirectDiffuseModifier = Shader.PropertyToID("IndirectDiffuseModifier");
-  internal static readonly int IndirectSpecularModifier = Shader.PropertyToID("IndirectSpecular`Modifier");
+  internal static readonly int IndirectSpecularModifier = Shader.PropertyToID("IndirectSpecularModifier");
   internal static readonly int LightCount = Shader.PropertyToID("LightCount");
   internal static readonly int LightSources = Shader.PropertyToID("LightSources");
   internal static readonly int LowResColor = Shader.PropertyToID("LowResColor");
   internal static readonly int LowResDepth = Shader.PropertyToID("LowResDepth");
   internal static readonly int MipmapLevel = Shader.PropertyToID("MipmapLevel");
   internal static readonly int NumThreads = Shader.PropertyToID("NumThreads");
-  internal static readonly int RadianceBA = Shader.PropertyToID("RadianceBA");
-  internal static readonly int RadianceCount = Shader.PropertyToID("RadianceCount");
-  internal static readonly int RadianceRG = Shader.PropertyToID("RadianceRG");
+  internal static readonly int FragmentPointers = Shader.PropertyToID("FragmentPointers");
   internal static readonly int RayTracingStep = Shader.PropertyToID("RayTracingStep");
   internal static readonly int Resolution = Shader.PropertyToID("Resolution");
+  internal static readonly int BinaryResolution = Shader.PropertyToID("BinaryResolution");
+  internal static readonly int StepMapResolution = Shader.PropertyToID("StepMapResolution");
+  internal static readonly int BinaryVoxelSize = Shader.PropertyToID("BinaryVoxelSize");
   internal static readonly int Source = Shader.PropertyToID("Source");
   internal static readonly int Target = Shader.PropertyToID("Target");
+  internal static readonly int TargetDownscale = Shader.PropertyToID("TargetDownscale");
+  internal static readonly int StepMap = Shader.PropertyToID("StepMap");
+  internal static readonly int StepMapFine2x2x2Encode = Shader.PropertyToID("StepMapFine2x2x2Encode");
+  internal static readonly int Binary = Shader.PropertyToID("Binary");
   internal static readonly int VoxelBuffer = Shader.PropertyToID("VoxelBuffer");
   internal static readonly int VoxelToWorld = Shader.PropertyToID("VoxelToWorld");
   internal static readonly int VXGI_CascadeIndex = Shader.PropertyToID("VXGI_CascadeIndex");
@@ -51,4 +56,11 @@ internal static class ShaderIDs {
   internal static readonly int VXGI_VolumeSize = Shader.PropertyToID("VXGI_VolumeSize");
   internal static readonly int VXGI_VoxelFragmentsCountBuffer = Shader.PropertyToID("VXGI_VoxelFragmentsCountBuffer");
   internal static readonly int WorldToVoxel = Shader.PropertyToID("WorldToVoxel");
+  internal static readonly int PerPixelGIRayCount = Shader.PropertyToID("PerPixelGIRayCount");
+  internal static readonly int PerVoxelGIRayCount = Shader.PropertyToID("PerVoxelGIRayCount");
+  //Useful for stratified sampling
+  internal static readonly int PerPixelGIRayCountSqrt = Shader.PropertyToID("PerPixelGIRayCountSqrt");
+  internal static readonly int PerVoxelGIRayCountSqrt = Shader.PropertyToID("PerVoxelGIRayCountSqrt");
+  internal static readonly int TempSkyColor = Shader.PropertyToID("TempSkyColor");
+  internal static readonly int NoiseNum = Shader.PropertyToID("NoiseNum");
 }

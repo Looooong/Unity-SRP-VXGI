@@ -6,10 +6,19 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(VXGI))]
 [AddComponentMenu("Rendering/VXGI Mipmap Debug")]
 class VXGIMipmapDebug : MonoBehaviour {
+  public enum ViewMode
+  {
+    Camera,
+    StepMap
+  }
+  public ViewMode viewMode = ViewMode.Camera;
   public bool usePointFilter = true;
   [Range(0f, 9f)]
   public float level = 1f;
   [Min(0.001f)] public float rayTracingStep = .05f;
+  [Range(0f, 1f)]
+  public float layer = 0.5f;
+  public bool showDepth;
 
   Camera _camera;
   CommandBuffer _command;
@@ -31,33 +40,49 @@ class VXGIMipmapDebug : MonoBehaviour {
   }
 
   void OnDrawGizmosSelected() {
-    if (_vxgi.AnisotropicVoxel) {
+    if (_vxgi.ColorVoxelizer.AnisotropicColors) {
       Gizmos.color = Color.red;
-      Gizmos.DrawLine(_vxgi.voxelSpaceCenter, _vxgi.voxelSpaceCenter + (_camera.transform.position - _vxgi.voxelSpaceCenter).normalized);
+      Gizmos.DrawLine(_vxgi.ColorVoxelizer.renderedVoxelSpaceCenter, _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter + (_camera.transform.position - _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter).normalized);
     }
   }
 
   void OnPreRender() {
     if (!isActiveAndEnabled || !_vxgi.isActiveAndEnabled) return;
-
     _command.Clear();
 
-    var transform = Matrix4x4.TRS(_vxgi.origin, Quaternion.identity, Vector3.one * _vxgi.bound);
+    var transform = Matrix4x4.TRS(_vxgi.ColorVoxelizer.origin, Quaternion.identity, Vector3.one * _vxgi.bound);
 
     if (usePointFilter) {
       _command.EnableShaderKeyword("RADIANCE_POINT_SAMPLER");
     } else {
       _command.DisableShaderKeyword("RADIANCE_POINT_SAMPLER");
     }
-
-    if (_vxgi.CascadesEnabled) {
-      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.cascadesCount));
-    } else {
-      _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level + 1, _vxgi.radiances.Length));
+    if (viewMode == ViewMode.Camera) {
+      _command.EnableShaderKeyword("VIEWMODE_CAMERA");
+    }
+    else {
+      _command.DisableShaderKeyword("VIEWMODE_CAMERA");
+    }
+    if (_vxgi.lightingMethod == VXGI.LightingMethod.Rays) {
+      _command.EnableShaderKeyword("LIGHTING_RAYS");
+    }
+    else {
+      _command.DisableShaderKeyword("LIGHTING_CONES");
+    }
+    if (showDepth)
+    {
+      _command.EnableShaderKeyword("SHOW_DEPTH");
+    }
+    else
+    {
+      _command.DisableShaderKeyword("SHOW_DEPTH");
     }
 
+    _command.SetGlobalFloat(ShaderIDs.MipmapLevel, Mathf.Min(level, _vxgi.cascadesCount));
+
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, Mathf.Max(rayTracingStep, .001f));
-    _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.voxelSpaceCenter).normalized);
+    _command.SetGlobalFloat("VXGI_layer", layer);
+    _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter).normalized);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
   }
 }

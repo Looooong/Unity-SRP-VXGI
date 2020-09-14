@@ -1,6 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
+using UnityEditor;
+using System;
 
 [ExecuteAlways]
 [RequireComponent(typeof(Camera))]
@@ -8,10 +11,16 @@ using UnityEngine.Rendering;
 public class VXGI : MonoBehaviour {
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
   public enum Resolution {
-    [InspectorName("Low (32^3)")] Low = 32,
-    [InspectorName("Medium (64^3)")] Medium = 64,
-    [InspectorName("High (128^3)")] High = 128,
-    [InspectorName("Very High (256^3)")] VeryHigh = 256
+    [InspectorName("Low (32^3)        0.25mb")] Low = 32,
+    [InspectorName("Medium (64^3)     2mb")] Medium = 64,
+    [InspectorName("High (128^3)      16mb")] High = 128,
+    [InspectorName("Very High (256^3) 128mb")] VeryHigh = 256,
+  }
+  public enum BinaryResolution
+  {
+    [InspectorName("Low (128^3)    2mb")] Low = 128,
+    [InspectorName("Medium (256^3) 16mb")] Medium = 256,
+    [InspectorName("Decent (512^3) 128mb")] Decent = 512,
   }
 
   public readonly static ReadOnlyCollection<LightType> SupportedLightTypes = new ReadOnlyCollection<LightType>(new[] {
@@ -19,15 +28,14 @@ public class VXGI : MonoBehaviour {
   });
 
   public const int MaxCascadesCount = 8;
-  public const int MinCascadesCount = 4;
+  public const int MinCascadesCount = 1;
 
   public bool anisotropicVoxel;
-  public bool cascadesEnabled;
   [Range(MinCascadesCount, MaxCascadesCount)]
   public int cascadesCount = MinCascadesCount;
   public Vector3 center;
   public AntiAliasing antiAliasing = AntiAliasing.X1;
-  public Resolution resolution = Resolution.Medium;
+  public Resolution resolution = Resolution.VeryHigh;
   [Tooltip(
 @"Box: fast, 2^n voxel resolution.
 Gaussian 3x3x3: fast, 2^n+1 voxel resolution (recommended).
@@ -36,73 +44,64 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   public Mipmapper.Mode mipmapFilterMode = Mipmapper.Mode.Gaussian3x3x3;
   public float indirectDiffuseModifier = 1f;
   public float indirectSpecularModifier = 1f;
+
+  public enum LightingMethod
+  {
+    Cones,
+    Rays
+  };
+  public LightingMethod lightingMethod = LightingMethod.Rays;
+  public BinaryResolution binaryResolution = BinaryResolution.Medium;
+
   [Range(.1f, 1f)]
   public float diffuseResolutionScale = 1f;
-  [Range(1f, 100f)]
+  [Range(1f, 256f)]
   public float bound = 10f;
   public bool throttleTracing = false;
   [Range(1f, 100f)]
   public float tracingRate = 10f;
   public bool followCamera = false;
 
+  int NoiseNum = 0;
+  public bool AnimateNoise = false;
+  public bool AllowUnsafeValues = false;
+  public int PerPixelPerLightShadowRays = 5;
+  public int PerPixelGIRays = 4;
+  public int PerVoxelGIRays = 1;
+  public Color AmbientColor;
+
   public bool resolutionPlusOne {
     get { return mipmapFilterMode == Mipmapper.Mode.Gaussian3x3x3; }
   }
-  public float BufferScale => (CascadesEnabled ? CascadesCount : 1f) * 64f / (_resolution - _resolution % 2);
-  public float voxelSize {
-    get { return bound / (_resolution - _resolution % 2); }
-  }
-  public int volume {
-    get { return _resolution * _resolution * _resolution; }
-  }
   public Camera Camera => _camera;
-  public ComputeBuffer voxelBuffer {
-    get { return _voxelBuffer; }
-  }
-  public Matrix4x4 voxelToWorld {
-    get { return Matrix4x4.TRS(origin, Quaternion.identity, Vector3.one * voxelSize); }
-  }
-  public Matrix4x4 worldToVoxel {
-    get { return voxelToWorld.inverse; }
-  }
   public Parameterizer parameterizer {
     get { return _parameterizer; }
   }
-  public RenderTexture[] radiances {
-    get { return _radiances; }
-  }
-  public Vector3 origin {
-    get { return voxelSpaceCenter - Vector3.one * .5f * bound; }
-  }
-  public Vector3 voxelSpaceCenter {
-    get {
-      var position = center;
 
-      position /= voxelSize;
-      position.x = Mathf.Floor(position.x);
-      position.y = Mathf.Floor(position.y);
-      position.z = Mathf.Floor(position.z);
+  Voxelizer colorVoxelizer;
+  Voxelizer binaryVoxelizer;
+  internal Voxelizer ColorVoxelizer { get { return colorVoxelizer; } }
+  internal Voxelizer BinaryVoxelizer { get { return ((int)binaryResolution == (int)clampedColorResolution || binaryVoxelizer==null) ? colorVoxelizer : binaryVoxelizer; } }
 
-      return position * voxelSize;
+  int clampedColorResolution
+  {
+    get
+    {
+      return (RequiresBinary && (int)binaryResolution < (int)resolution) ? (int)binaryResolution : (int)resolution;
     }
   }
 
-  internal bool AnisotropicVoxel { get; private set; }
-  internal bool CascadesEnabled { get; private set; }
-  internal int CascadesCount { get; private set; }
-  internal Voxelizer Voxelizer { get; private set; }
+  public bool RequiresColors { get { return true || RequiresColorMipmaps; } }
+  public bool RequiresColorMipmaps { get { return lightingMethod == LightingMethod.Cones; } }
+  public bool RequiresBinary { get { return lightingMethod == LightingMethod.Rays || RequiresBinaryStepMap; } }
+  public bool RequiresBinaryStepMap { get { return lightingMethod == LightingMethod.Rays; } }
 
-  int _resolution = 0;
   float _previousTrace = 0f;
   Camera _camera;
   CommandBuffer _command;
-  ComputeBuffer _voxelBuffer;
   Mipmapper _mipmapper;
   Parameterizer _parameterizer;
-  RenderTexture[] _radiances;
-  RenderTextureDescriptor _radianceDescriptor;
-  Vector3 _lastVoxelSpaceCenter;
-  VoxelShader _voxelShader;
+  //Vector3 _lastVoxelSpaceCenter;
 
   #region Rendering
   public void Render(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
@@ -116,9 +115,12 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
 
-    UpdateResolution();
+    UpdateStorage(true);
     SetupShaderKeywords(renderContext);
+    SetupShaderVariables(renderContext);
 
+    if (AnimateNoise)
+      NoiseNum += 1;
     float time = Time.unscaledTime;
     bool tracingThrottled = throttleTracing;
 
@@ -155,33 +157,47 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
-    if (followCamera) center = transform.position;
 
-    var displacement = (voxelSpaceCenter - _lastVoxelSpaceCenter) / voxelSize;
+    //var displacement = (voxelSpaceCenter - _lastVoxelSpaceCenter) / voxelSize;
 
-    if (displacement.sqrMagnitude > 0f) {
-      _mipmapper.Shift(renderContext, Vector3Int.RoundToInt(displacement));
+    //if (displacement.sqrMagnitude > 0f) {
+    //  _mipmapper.Shift(renderContext, Vector3Int.RoundToInt(displacement));
+    //}
+    if (RequiresColors || RequiresBinary)
+    {
+      //if (colorVoxelizer != null) Debug.Log("colorVoxelizer");
+      colorVoxelizer?.Voxelize(renderContext, renderer);
+      //if (binaryVoxelizer != null) Debug.Log("binaryVoxelizer");
+      binaryVoxelizer?.Voxelize(renderContext, renderer);
     }
 
-    Voxelizer.Voxelize(renderContext, renderer);
-    _voxelShader.Render(renderContext);
+    if (RequiresColorMipmaps)
+    {
+      //_mipmapper.Filter(renderContext);
+    }
 
-    if (!CascadesEnabled) _mipmapper.Filter(renderContext);
-
-    _lastVoxelSpaceCenter = voxelSpaceCenter;
+    //_lastVoxelSpaceCenter = voxelSpaceCenter;
   }
 
   void SetupShaderKeywords(ScriptableRenderContext renderContext) {
-    if (AnisotropicVoxel) {
+    if (anisotropicVoxel) {
       _command.EnableShaderKeyword("VXGI_ANISOTROPIC_VOXEL");
     } else {
       _command.DisableShaderKeyword("VXGI_ANISOTROPIC_VOXEL");
     }
 
-    if (CascadesEnabled) {
-      _command.EnableShaderKeyword("VXGI_CASCADES");
+    _command.EnableShaderKeyword("VXGI_CASCADES");
+
+    if (RequiresColors) {
+      _command.EnableShaderKeyword("VXGI_COLOR");
     } else {
-      _command.DisableShaderKeyword("VXGI_CASCADES");
+      _command.DisableShaderKeyword("VXGI_COLOR");
+    }
+
+    if (RequiresBinary) {
+      _command.EnableShaderKeyword("VXGI_BINARY");
+    } else {
+      _command.DisableShaderKeyword("VXGI_BINARY");
     }
 
     renderContext.ExecuteCommandBuffer(_command);
@@ -189,26 +205,28 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void SetupShaderVariables(ScriptableRenderContext renderContext) {
-    foreach (var radiance in radiances) {
-      if (!radiance.IsCreated()) radiance.Create();
-    }
+    _command.SetGlobalTexture(ShaderIDs.Radiance[0], ColorVoxelizer.radiance);
+    _command.SetGlobalTexture(ShaderIDs.StepMap, BinaryVoxelizer.StepMapper?.stepmap);
+    _command.SetGlobalTexture(ShaderIDs.StepMapFine2x2x2Encode, BinaryVoxelizer.StepMapper?.StepMapFine2x2x2Encode);
+    _command.SetGlobalTexture(ShaderIDs.Binary, BinaryVoxelizer.binary);
 
-    if (CascadesEnabled) {
-      _command.SetGlobalTexture(ShaderIDs.Radiance[0], radiances[0]);
-    } else {
-      for (int i = 0; i < 9; i++) {
-        _command.SetGlobalTexture(ShaderIDs.Radiance[i], radiances[Mathf.Min(i, _radiances.Length - 1)]);
-      }
-    }
-
+    _command.SetGlobalColor(ShaderIDs.TempSkyColor, AmbientColor);
     _command.SetGlobalFloat(ShaderIDs.IndirectDiffuseModifier, indirectDiffuseModifier);
     _command.SetGlobalFloat(ShaderIDs.IndirectSpecularModifier, indirectSpecularModifier);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeExtent, .5f * bound);
     _command.SetGlobalFloat(ShaderIDs.VXGI_VolumeSize, bound);
-    _command.SetGlobalInt(ShaderIDs.Resolution, _resolution);
-    _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, CascadesCount);
-    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, worldToVoxel);
-    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, voxelSpaceCenter);
+    _command.SetGlobalFloat(ShaderIDs.NoiseNum, (float)NoiseNum);
+    _command.SetGlobalInt(ShaderIDs.PerPixelGIRayCount, PerPixelGIRays);
+    _command.SetGlobalInt(ShaderIDs.PerVoxelGIRayCount, PerVoxelGIRays);
+    _command.SetGlobalInt(ShaderIDs.PerPixelGIRayCountSqrt, (int)Math.Sqrt(PerPixelGIRays));
+    _command.SetGlobalInt(ShaderIDs.PerVoxelGIRayCountSqrt, (int)Math.Sqrt(PerVoxelGIRays));
+    _command.SetGlobalInt(ShaderIDs.Resolution, ColorVoxelizer.ColorStorageResolution.x);
+    _command.SetGlobalInt(ShaderIDs.BinaryResolution, BinaryVoxelizer.BinaryStorageResolution.x);
+    _command.SetGlobalInt(ShaderIDs.StepMapResolution, BinaryVoxelizer.StepMapper.StepMapStorageResolution.x);
+    _command.SetGlobalFloat(ShaderIDs.BinaryVoxelSize, bound*2.0f/(float)BinaryVoxelizer.BinaryStorageResolution.x);
+    _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, cascadesCount);
+    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, BinaryVoxelizer.worldToVoxel);
+    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, BinaryVoxelizer.renderedVoxelSpaceCenter);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
@@ -217,138 +235,181 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   #region Messages
   void OnDrawGizmos() {
     Gizmos.color = Color.green;
-    Gizmos.DrawWireCube(voxelSpaceCenter, Vector3.one * bound);
+    Gizmos.DrawWireCube(ColorVoxelizer.renderedVoxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound);
 
-    if (CascadesEnabled) {
-      for (int i = 1; i < CascadesCount; i++) {
-        Gizmos.DrawWireCube(voxelSpaceCenter, Vector3.one * bound / Mathf.Pow(2, i));
+      for (int i = 1; i < cascadesCount; i++) {
+        Gizmos.DrawWireCube(ColorVoxelizer.renderedVoxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound / Mathf.Pow(2, i));
       }
-    }
   }
 
   void OnEnable() {
-    _resolution = (int)resolution;
 
     _camera = GetComponent<Camera>();
     _command = new CommandBuffer { name = "VXGI.MonoBehaviour" };
     _mipmapper = new Mipmapper(this);
     _parameterizer = new Parameterizer();
-    Voxelizer = new Voxelizer(this);
-    _voxelShader = new VoxelShader(this);
-    _lastVoxelSpaceCenter = voxelSpaceCenter;
+    //_lastVoxelSpaceCenter = voxelSpaceCenter;
 
-    CreateBuffers();
-    CreateTextureDescriptor();
-    CreateTextures();
+    UpdateStorage(true);
   }
 
   void OnDisable() {
-    DisposeTextures();
-    DisposeBuffers();
+    UpdateStorage(false);
 
-    _voxelShader.Dispose();
-    Voxelizer.Dispose();
+    colorVoxelizer?.Dispose();
+    binaryVoxelizer?.Dispose();
+    colorVoxelizer = null;
+    binaryVoxelizer = null;
     _parameterizer.Dispose();
     _mipmapper.Dispose();
     _command.Dispose();
   }
   #endregion
 
-  #region Buffers
-  void CreateBuffers() {
-    _voxelBuffer = new ComputeBuffer((int)(BufferScale * volume), VoxelData.size, ComputeBufferType.Append);
-  }
-
-  void DisposeBuffers() {
-    _voxelBuffer.Dispose();
-  }
-
-  void ResizeBuffers() {
-    DisposeBuffers();
-    CreateBuffers();
-  }
-  #endregion
-
-  #region RenderTextures
-  void CreateTextureDescriptor() {
-    _radianceDescriptor = new RenderTextureDescriptor() {
-      colorFormat = RenderTextureFormat.ARGBHalf,
-      dimension = TextureDimension.Tex3D,
-      enableRandomWrite = true,
-      msaaSamples = 1,
-      sRGB = false
-    };
-  }
-
-  void CreateTextures() {
-    if (CascadesEnabled) {
-      _radianceDescriptor.height = _radianceDescriptor.width = _resolution;
-      _radianceDescriptor.volumeDepth = CascadesCount * _resolution;
-
-      if (AnisotropicVoxel) _radianceDescriptor.height *= 6;
-
-      _radiances = new[] { new RenderTexture(_radianceDescriptor) };
-    } else {
-      int resolutionModifier = _resolution % 2;
-
-      _radiances = new RenderTexture[(int)Mathf.Log(_resolution, 2f)];
-
-      for (
-        int i = 0, currentResolution = _resolution;
-        i < _radiances.Length;
-        i++, currentResolution = (currentResolution - resolutionModifier) / 2 + resolutionModifier
-      ) {
-        _radianceDescriptor.height = _radianceDescriptor.width = _radianceDescriptor.volumeDepth = currentResolution;
-        _radiances[i] = new RenderTexture(_radianceDescriptor);
-      }
-    }
-  }
-
-  void DisposeTextures() {
-    foreach (var radiance in _radiances) {
-      if (radiance.IsCreated()) radiance.Release();
-      DestroyImmediate(radiance);
-    }
-  }
-
-  void ResizeTextures() {
-    DisposeTextures();
-    CreateTextures();
-  }
-  #endregion
-
-  void UpdateResolution() {
-    bool resize = false;
-
-    if (AnisotropicVoxel != anisotropicVoxel) {
-      AnisotropicVoxel = anisotropicVoxel;
-      resize = true;
-    }
-
-    if (CascadesEnabled != cascadesEnabled) {
-      CascadesEnabled = cascadesEnabled;
-      resize = true;
-    }
-
+  void UpdateStorage(bool existenceIsRequired)
+  {
+    if (followCamera) center = transform.position;
     cascadesCount = Mathf.Clamp(cascadesCount, MinCascadesCount, MaxCascadesCount);
 
-    if (CascadesCount != cascadesCount && CascadesEnabled) {
-      CascadesCount = cascadesCount;
-      resize = true;
+    if (colorVoxelizer == null)
+    {
+      colorVoxelizer = new Voxelizer();
+    }
+    if (RequiresBinary && (int)clampedColorResolution == (int)binaryResolution)
+    {
+      if (colorVoxelizer.StepMapper == null)
+      {
+        colorVoxelizer.StepMapper = new StepMapper(colorVoxelizer);
+      }
+      binaryVoxelizer?.Dispose();
+      binaryVoxelizer = null;
+    }
+    else if (RequiresBinary)
+    {
+      colorVoxelizer.StepMapper?.Dispose();
+      colorVoxelizer.StepMapper = null;
+      if (binaryVoxelizer == null)
+      {
+        binaryVoxelizer = new Voxelizer();
+        binaryVoxelizer.StepMapper = new StepMapper(binaryVoxelizer);
+      }
     }
 
-    int newResolution = (int)resolution;
 
-    if (resolutionPlusOne && !CascadesEnabled) newResolution++;
-
-    if (_resolution != newResolution) {
-      _resolution = newResolution;
-      resize = true;
+    if (colorVoxelizer!=null)
+    {
+      colorVoxelizer.VoxelizeColors = RequiresColors;
+      colorVoxelizer.AnisotropicColors = anisotropicVoxel;
+      colorVoxelizer.VoxelizeBinary = RequiresBinary && binaryVoxelizer == null;
+      colorVoxelizer.Resolution = (int)clampedColorResolution;
+      colorVoxelizer.AntiAliasing = (int)antiAliasing;
+      colorVoxelizer.Centre = center;
+      colorVoxelizer.Bound = bound;
+      colorVoxelizer.Cascades = cascadesCount;
+      colorVoxelizer.UpdateStorage(existenceIsRequired);
     }
-
-    if (resize) {
-      ResizeBuffers();
-      ResizeTextures();
+    if (binaryVoxelizer != null)
+    {
+      binaryVoxelizer.VoxelizeColors = false;
+      binaryVoxelizer.AnisotropicColors = anisotropicVoxel;
+      binaryVoxelizer.VoxelizeBinary = RequiresBinary;
+      binaryVoxelizer.Resolution = (int)binaryResolution;
+      binaryVoxelizer.AntiAliasing = (int)antiAliasing;
+      binaryVoxelizer.Centre = center;
+      binaryVoxelizer.Bound = bound;
+      binaryVoxelizer.Cascades = cascadesCount;
+      binaryVoxelizer.UpdateStorage(existenceIsRequired);
     }
   }
 }
+
+#if UNITY_EDITOR
+[CustomEditor(typeof(VXGI))]
+public class VXGIEditor : Editor
+{
+  Func<Enum, bool> showEnumValue = ShowEnumValue;
+  // my custom function
+  public static bool ShowEnumValue(Enum lightingMethod)
+  {
+    return (VXGI.LightingMethod)lightingMethod == VXGI.LightingMethod.Rays;
+  }
+  public int SafeIntSlider(string text, int value, int range0, int range1, bool notsafe)
+  {
+    if (!notsafe)
+      return EditorGUILayout.IntSlider(text, value, range0, range1);
+    else
+      return EditorGUILayout.IntField(text, value);
+  }
+  public override void OnInspectorGUI()
+  {
+    var _vxgi = target as VXGI;
+
+
+    EditorGUILayout.LabelField("Lighting", EditorStyles.boldLabel);
+    _vxgi.lightingMethod = (VXGI.LightingMethod)EditorGUILayout.EnumPopup(new GUIContent(""), _vxgi.lightingMethod, showEnumValue, true);// EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, ShowEnumValue, false);
+    _vxgi.diffuseResolutionScale = EditorGUILayout.Slider("Resolution Scale", _vxgi.diffuseResolutionScale, 0.1f, 1.0f);
+    _vxgi.throttleTracing = EditorGUILayout.Toggle("Throttle Tracing", _vxgi.throttleTracing);
+    if (_vxgi.throttleTracing)
+      _vxgi.tracingRate = EditorGUILayout.Slider("Tracing Rate", _vxgi.tracingRate, 1.0f, 100.0f);
+    if (_vxgi.lightingMethod == VXGI.LightingMethod.Rays)
+    {
+      _vxgi.AllowUnsafeValues = EditorGUILayout.Toggle("Allow Unsafe Values", _vxgi.AllowUnsafeValues);
+      _vxgi.PerPixelGIRays = SafeIntSlider("Per-Pixel GI Quality", (int)Math.Sqrt((double)_vxgi.PerPixelGIRays), 0, 10, _vxgi.AllowUnsafeValues);
+      _vxgi.PerPixelGIRays *= _vxgi.PerPixelGIRays;
+      if (_vxgi.PerPixelGIRays == 0)
+        EditorGUILayout.LabelField("Per Pixel: Disabled");
+      else
+        EditorGUILayout.LabelField("Per Pixel: " + _vxgi.PerPixelGIRays.ToString() + " rays");
+
+      _vxgi.PerPixelPerLightShadowRays = SafeIntSlider("Per-Pixel Shadow Rays for light with radius 1", _vxgi.PerPixelPerLightShadowRays, 0, 20, _vxgi.AllowUnsafeValues);
+
+      _vxgi.PerVoxelGIRays = SafeIntSlider("Per-Voxel GI Quality", (int)Math.Sqrt((double)_vxgi.PerVoxelGIRays), 0, 5, _vxgi.AllowUnsafeValues);
+      _vxgi.PerVoxelGIRays *= _vxgi.PerVoxelGIRays;
+      if (_vxgi.PerVoxelGIRays == 0)
+        EditorGUILayout.LabelField("Per Voxel: Disabled");
+      else
+        EditorGUILayout.LabelField("Per Voxel: " + _vxgi.PerVoxelGIRays.ToString() + " rays");
+
+      _vxgi.AnimateNoise = EditorGUILayout.Toggle("Animate Per-Pixel Noise", _vxgi.AnimateNoise);
+      _vxgi.AmbientColor = EditorGUILayout.ColorField("Sky Color", _vxgi.AmbientColor);
+      _vxgi.indirectDiffuseModifier = EditorGUILayout.FloatField("Indirect Diffuse Modifier", _vxgi.indirectDiffuseModifier);
+      GUI.enabled = false;
+        _vxgi.indirectSpecularModifier = EditorGUILayout.FloatField("Indirect Specular Modifier", _vxgi.indirectSpecularModifier);
+      _vxgi.indirectSpecularModifier = 0.0f;
+      GUI.enabled = true;
+    }
+
+
+    EditorGUILayout.LabelField("Voxelization", EditorStyles.boldLabel);
+    GUI.enabled = false;
+      _vxgi.cascadesCount = EditorGUILayout.IntSlider("Cascades", _vxgi.cascadesCount, VXGI.MinCascadesCount, VXGI.MaxCascadesCount);
+      _vxgi.cascadesCount = 1;
+    GUI.enabled = true;
+    _vxgi.bound = EditorGUILayout.Slider("Bounds", _vxgi.bound, 0f, 256f);
+
+    _vxgi.followCamera = EditorGUILayout.Toggle("Follow Camera", _vxgi.followCamera);
+    GUI.enabled = !_vxgi.followCamera;
+      _vxgi.center = EditorGUILayout.Vector3Field("Center", _vxgi.center);
+    GUI.enabled = true;
+    GUI.enabled = false;
+      _vxgi.anisotropicVoxel = EditorGUILayout.Toggle("Anistropic Colors", _vxgi.anisotropicVoxel);
+      _vxgi.anisotropicVoxel = false;
+    GUI.enabled = true;
+    _vxgi.resolution = (VXGI.Resolution)EditorGUILayout.EnumPopup("Color Resolution", _vxgi.resolution);
+    if (_vxgi.RequiresBinary)
+    {
+      _vxgi.binaryResolution = (VXGI.BinaryResolution)EditorGUILayout.EnumPopup("Binary Resolution", _vxgi.binaryResolution);
+
+      if ((int)_vxgi.binaryResolution < (int)_vxgi.resolution)
+      {
+        EditorGUILayout.HelpBox("Color resolution must <= to binary resolution.", MessageType.Error);
+      }
+      if ((int)_vxgi.binaryResolution != (int)_vxgi.resolution)
+      {
+        EditorGUILayout.HelpBox("Currently there's a slow down when the two resolutions don't match, hoping to improve at some point.", MessageType.Warning);
+      }
+    }
+    _vxgi.antiAliasing = (VXGI.AntiAliasing)EditorGUILayout.EnumPopup("Anti Aliasing", _vxgi.antiAliasing);
+  }
+}
+#endif

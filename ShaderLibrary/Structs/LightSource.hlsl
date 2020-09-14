@@ -15,10 +15,11 @@
     float spotCos;
     float spotFactor;
     uint type;
+    float2 radius;
 
-    float3 Attenuation(float3 otherPosition)
+    float Attenuation(float3 otherPosition)
     {
-      return color / max(0.01, dot(otherPosition, otherPosition));
+      return 1.0 / max(0.01, dot(otherPosition, otherPosition));
     }
 
     bool NotInRange(float3 otherPosition) {

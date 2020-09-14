@@ -35,10 +35,12 @@ public class Mipmapper {
     _command.Dispose();
   }
 
-  public void Filter(ScriptableRenderContext renderContext) {
-    UpdateKernel();
+  public void Filter(ScriptableRenderContext renderContext)
+  {
+    return;
+    /*UpdateKernel();
 
-    var radiances = _vxgi.radiances;
+    var radiances = _vxgi.VoxelizerForLights.radiances;
 
     for (var i = 1; i < radiances.Length; i++) {
       int resolution = radiances[i].volumeDepth;
@@ -54,13 +56,14 @@ public class Mipmapper {
       );
       _command.EndSample(_sampleFilter + _vxgi.mipmapFilterMode.ToString() + '.' + resolution.ToString("D3"));
     }
-
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
+    */
   }
 
   public void Shift(ScriptableRenderContext renderContext, Vector3Int displacement) {
-    UpdateKernel();
+    return;
+    /*UpdateKernel();
 
     _command.BeginSample(_sampleShift);
     _command.SetComputeIntParam(compute, ShaderIDs.Resolution, (int)_vxgi.resolution);
@@ -76,6 +79,7 @@ public class Mipmapper {
     _command.Clear();
 
     Filter(renderContext);
+    */
   }
 
   void InitializeKernel() {

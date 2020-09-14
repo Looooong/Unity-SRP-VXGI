@@ -201,10 +201,10 @@ public class VXGIRenderer : System.IDisposable {
     _renderScale[2] = vxgi.diffuseResolutionScale;
 
     _command.BeginSample(_sampleRenderLighting);
-    _command.SetGlobalMatrix(ShaderIDs.ClipToVoxel, vxgi.worldToVoxel * clipToWorld);
+    _command.SetGlobalMatrix(ShaderIDs.ClipToVoxel, vxgi.ColorVoxelizer.worldToVoxel * clipToWorld);
     _command.SetGlobalMatrix(ShaderIDs.ClipToWorld, clipToWorld);
-    _command.SetGlobalMatrix(ShaderIDs.VoxelToWorld, vxgi.voxelToWorld);
-    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, vxgi.worldToVoxel);
+    _command.SetGlobalMatrix(ShaderIDs.VoxelToWorld, vxgi.ColorVoxelizer.voxelToWorld);
+    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, vxgi.ColorVoxelizer.worldToVoxel);
 
     for (int i = 0; i < _lightingPasses.Length; i++) {
       _lightingPasses[i].Execute(_command, camera, ShaderIDs.FrameBuffer, _renderScale[i]);
@@ -288,7 +288,7 @@ public class VXGIRenderer : System.IDisposable {
       var light = _cullingResults.visibleLights[i];
 
       if (VXGI.SupportedLightTypes.Contains(light.lightType) && light.finalColor.maxColorComponent > 0f) {
-        data[count++] = new LightSource(light, vxgi);
+        data[count++] = new LightSource(light, vxgi, vxgi.ColorVoxelizer);
       }
     }
 

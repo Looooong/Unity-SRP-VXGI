@@ -1,0 +1,102 @@
+﻿#pragma kernel CSGenerate
+#include "Packages/com.looooong.srp.vxgi/ShaderLibrary/BitManip.cginc"
+Texture3D<float> Source;
+RWTexture3D<float> Target;
+RWTexture3D<float> TargetDownscale;
+
+//Compute over area of 64x64x64 for half-res acceleration structure
+groupshared uint Local16[16][16] = { {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }};
+groupshared uint Local8[8][8] = { {0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
+groupshared uint Local4[4][4] = { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} };
+groupshared uint Local2[2][2] = { {0,0},{0,0} };
+groupshared uint Local1 = 0;
+[numthreads(32,32,1)]
+void CSGenerate(uint3 id : SV_DispatchThreadID, uint3 localid : SV_GroupThreadID)
+{
+  uint ReallyLocal32 = 0;
+  uint3 finePos = id * uint3(2,2,64);
+  uint3 offset;
+  [unroll]
+  for (offset.x = 0; offset.x < 2; offset.x += 1)
+  {
+    [unroll]
+    for (offset.y = 0; offset.y < 2; offset.y += 1)
+    {
+      [unroll]
+      for (offset.z = 0; offset.z < 64; offset.z += 1)
+      {
+        ReallyLocal32 |= (Source[finePos + offset] != 0) ? (1 << (offset.z/2)) : 0;
+      }
+    }
+  }
+  //To ensure all the initialization 0's have been written, not sure I entirely understand.
+  GroupMemoryBarrierWithGroupSync();
+
+  uint reducedReallyLocal32 = ReallyLocal32;
+  reducedReallyLocal32 |= ((reducedReallyLocal32 << 1) & 2863311530u) | ((reducedReallyLocal32 & 2863311530u) >> 1);
+  InterlockedOr(Local16[localid.x / 2][localid.y / 2], reducedReallyLocal32);
+  reducedReallyLocal32 |= ((reducedReallyLocal32 << 2) & 3435973836u) | ((reducedReallyLocal32 & 3435973836u) >> 2);
+  InterlockedOr(Local8[localid.x / 4][localid.y / 4], reducedReallyLocal32);
+  reducedReallyLocal32 |= ((reducedReallyLocal32 << 4) & 4042322160u) | ((reducedReallyLocal32 & 4042322160u) >> 4);
+  InterlockedOr(Local4[localid.x / 8][localid.y / 8], reducedReallyLocal32);
+  reducedReallyLocal32 |= ((reducedReallyLocal32 << 8) & 4278255360u) | ((reducedReallyLocal32 & 4278255360u) >> 8);
+  InterlockedOr(Local2[localid.x / 16][localid.y / 16], reducedReallyLocal32);
+  reducedReallyLocal32 |= ((reducedReallyLocal32 << 16) & 4294901760u) | ((reducedReallyLocal32 & 4294901760u) >> 16);
+  InterlockedOr(Local1, reducedReallyLocal32);
+
+  GroupMemoryBarrierWithGroupSync();
+
+  uint ReallyLocal16 = 0;
+  uint ReallyLocal8 = 0;
+  uint ReallyLocal4 = 0;
+  uint ReallyLocal2 = 0;
+  uint ReallyLocal1 = 0;
+  ReallyLocal16 = Local16[localid.x / 2][localid.y / 2];
+  ReallyLocal8 = Local8[localid.x / 4][localid.y / 4];
+  ReallyLocal4 = Local4[localid.x / 8][localid.y / 8];
+  ReallyLocal2 = Local2[localid.x / 16][localid.y / 16];
+  ReallyLocal1 = Local1;
+
+  uint3 mypos = id * uint3(1, 1, 32);
+
+  [unroll]
+  for (uint z = 0; z < 32; z += 1)
+  {
+    uint3 pos = mypos + uint3(0, 0, z);
+    uint mask = 1<<z;
+
+#define TrySize(size,name) \
+    if ((name & mask) == 0)\
+    {\
+      Target[pos] = size/255.0;\
+      continue;\
+    }
+    TrySize(64, ReallyLocal1)
+    TrySize(32, ReallyLocal2)
+    TrySize(16, ReallyLocal4)
+    TrySize(8, ReallyLocal8)
+    TrySize(4, ReallyLocal16)
+    TrySize(2, ReallyLocal32)
+    Target[pos] = 1/ 255.0;
+  }
+
+  //Generate 2x2x2 map (TODO: find a better way)
+  uint3 pos = mypos;
+  [unroll]
+  for (uint z = 0; z < 32; z += 1, pos.z += 1)
+  {
+    uint3 finePos = pos * 2;
+    uint mask = 0;
+    #define Combine(xx,yy,zz) mask += (Source[finePos + uint3(xx,yy,zz)] != 0) ? Get2x2x2MaskRel(uint3(xx,yy,zz)) : 0;
+    Combine(0, 0, 0);
+    Combine(1, 0, 0);
+    Combine(0, 1, 0);
+    Combine(1, 1, 0);
+    Combine(0, 0, 1);
+    Combine(1, 0, 1);
+    Combine(0, 1, 1);
+    Combine(1, 1, 1);
+
+    TargetDownscale[pos] = mask / 255.0;
+  }
+}

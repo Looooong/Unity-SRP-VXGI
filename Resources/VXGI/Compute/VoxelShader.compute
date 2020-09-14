@@ -1,16 +1,4 @@
-﻿#pragma kernel CSAggregate
-#pragma kernel CSAggregate D3D11
-#pragma kernel CSAggregate VXGI_CASCADES
-#pragma kernel CSAggregate D3D11 VXGI_CASCADES
-#pragma kernel CSAggregate VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSAggregate D3D11 VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSAggregate VXGI_CASCADES VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSAggregate D3D11 VXGI_CASCADES VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSClear
-#pragma kernel CSClear VXGI_CASCADES
-#pragma kernel CSClear VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSClear VXGI_CASCADES VXGI_ANISOTROPIC_VOXEL
-#pragma kernel CSRender
+﻿#pragma kernel CSRender
 #pragma kernel CSRender VXGI_CASCADES
 #pragma kernel CSRender VXGI_ANISOTROPIC_VOXEL
 #pragma kernel CSRender VXGI_CASCADES VXGI_ANISOTROPIC_VOXEL
@@ -19,16 +7,9 @@
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Structs/VoxelLightingData.hlsl"
 #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Voxel.cginc"
 
-#define RADIANCE_PRECISION 256.0
-
-groupshared uint VXGI_VoxelFragmentsCount;
-RWByteAddressBuffer VXGI_VoxelFragmentsCountBuffer;
-
-RWTexture3D<uint> RadianceRG;
-RWTexture3D<uint> RadianceBA;
-RWTexture3D<uint> RadianceCount;
 RWTexture3D<float4> Target;
-ConsumeStructuredBuffer<VoxelData> VoxelBuffer;
+RWStructuredBuffer<VoxelData> VoxelBuffer;
+RWTexture3D<int> FragmentPointers;
 
 #ifdef VXGI_CASCADES
 static uint3 VXGI_TexelResolution = uint3(Resolution, Resolution, Resolution * VXGI_CascadesCount);
@@ -40,171 +21,74 @@ static float3 VXGI_DoubleTexelResolution = 2.0 * VXGI_TexelResolution;
 static float3 VXGI_DoubleTexelResolutionMinus = 2.0 * VXGI_TexelResolution - 0.000001;
 static float3 VXGI_TexelResolutionMinus = VXGI_TexelResolution - 0.000001;
 
-void ClearTarget(uint3 id) {
-#ifdef D3D11
-    // Write only when necessary
-    if (any(Target[id])) Target[id] = 0.0;
-#else
-    Target[id] = 0.0;
-#endif
-}
+#define LOOP_LIMIT 100
+#define KEEPALPHA(x) float4((x).rgb, LitColor.a)
+//#define KEEPALPHA(x) x
 
 [numthreads(4,4,4)]
-void CSAggregate(uint3 id : SV_DispatchThreadID)
+void CSRender(uint3 id : SV_DispatchThreadID)
 {
+  uint pointer = FragmentPointers[id];
+  if (pointer!=0)
+    FragmentPointers[id] = 0;//Really important! This is how the pointer volume is cleared.
+
+  float count = 0;
 #ifdef VXGI_ANISOTROPIC_VOXEL
-  bool willWrite = false;
-  float4 colors[2][2][2];
-  uint3 offset, uvw;
-
-  [unroll] for (offset.x = 0u; offset.x < 2u; offset.x++)
-  [unroll] for (offset.y = 0u; offset.y < 2u; offset.y++)
-  [unroll] for (offset.z = 0u; offset.z < 2u; offset.z++) {
-    uvw = mad(2u, id, offset);
-    uint count = RadianceCount[uvw];
-
-    if (count > 0u) {
-      uint rg = RadianceRG[uvw];
-      uint ba = RadianceBA[uvw];
-
-      colors[offset.x][offset.y][offset.z] = uint4(
-        rg & 0xffff,
-        rg >> 16u,
-        ba & 0xffff,
-        ba >> 16u
-      ) / RADIANCE_PRECISION / count;
-      willWrite = true;
-    } else {
-      colors[offset.x][offset.y][offset.z] = 0.0;
+  float4 finalColors[6];
+  {
+    [unroll]
+    for (uint side = 0u; side < 6u; side++) {
+      finalColors[side] = float4(0, 0, 0, 0);
     }
   }
 
-  DeviceMemoryBarrierWithGroupSync();
+  while (pointer != 0 && count < LOOP_LIMIT)
+  {
+    VoxelData data = VoxelBuffer[pointer];
 
-  [unroll]
-  for (uint side = 0u; side < 6u; side++) {
-    uvw = uint3(id.x, mad(Resolution, side, id.y), id.z);
+    float3 normal = data.GetNormal();
+    float4 LitColor = data.GetColor();
 
-    if (willWrite) {
-      float4 color = 0.0;
+    finalColors[0] += KEEPALPHA(LitColor * saturate(normal.x));
+    finalColors[1] += KEEPALPHA(LitColor * saturate(normal.x * -1));
+    finalColors[2] += KEEPALPHA(LitColor * saturate(normal.y));
+    finalColors[3] += KEEPALPHA(LitColor * saturate(normal.y * -1));
+    finalColors[4] += KEEPALPHA(LitColor * saturate(normal.z));
+    finalColors[5] += KEEPALPHA(LitColor * saturate(normal.z * -1));
+    count += 1;
 
-      [unroll] for (offset.x = 0u; offset.x < 2u; offset.x++)
-      [unroll] for (offset.y = 0u; offset.y < 2u; offset.y++)
-      [branch] switch (side) {
-        case 0u:
-          color += colors[1][offset.x][offset.y] + (1.0 - colors[1][offset.x][offset.y].a) * colors[0][offset.x][offset.y];
-          break;
-        case 1u:
-          color += colors[0][offset.x][offset.y] + (1.0 - colors[0][offset.x][offset.y].a) * colors[1][offset.x][offset.y];
-          break;
-        case 2u:
-          color += colors[offset.x][1][offset.y] + (1.0 - colors[offset.x][1][offset.y].a) * colors[offset.x][0][offset.y];
-          break;
-        case 3u:
-          color += colors[offset.x][0][offset.y] + (1.0 - colors[offset.x][0][offset.y].a) * colors[offset.x][1][offset.y];
-          break;
-        case 4u:
-          color += colors[offset.x][offset.y][1] + (1.0 - colors[offset.x][offset.y][1].a) * colors[offset.x][offset.y][0];
-          break;
-        case 5u:
-          color += colors[offset.x][offset.y][0] + (1.0 - colors[offset.x][offset.y][0].a) * colors[offset.x][offset.y][1];
-          break;
-      }
+    pointer = data.GetPointer();
+  }
 
-      Target[uvw] = 0.25 * color;
-    } else {
-      ClearTarget(uvw);
+  float4 invcount = float4(float(3.1415).xxx, 1) / max(1, count);
+
+  {
+    [unroll]
+    for (uint side = 0u; side < 6u; side++) {
+      float4 finalColor = finalColors[side];
+
+      uint3 uvw = uint3(id.x, mad(Resolution, side, id.y), id.z);
+
+      finalColor *= invcount;
+
+      Target[uvw] = finalColor;
     }
   }
-#else // VXGI_ANISOTROPIC_VOXEL
-  if (any(id >= VXGI_TexelResolution)) return;
+#else //VXGI_ANISOTROPIC_VOXEL
+  float4 finalColor = float4(0, 0, 0, 0);
 
-  uint count = RadianceCount[id];
+  while (pointer != 0 && count < LOOP_LIMIT)
+  {
+    VoxelData data = VoxelBuffer[pointer];
 
-  if (count > 0u) {
-    uint rg = RadianceRG[id];
-    uint ba = RadianceBA[id];
+    finalColor += data.GetColor();
+    count += 1;
 
-    float4 color = uint4(
-      rg & 0xffff,
-      rg >> 16u,
-      ba & 0xffff,
-      ba >> 16u
-    ) / RADIANCE_PRECISION;
-
-    Target[id] = color / count;
-  } else {
-    ClearTarget(id);
+    pointer = data.GetPointer();
   }
-#endif // VXGI_ANISOTROPIC_VOXEL
-}
 
-[numthreads(4,4,4)]
-void CSClear(uint3 id : SV_DispatchThreadID)
-{
-#ifndef VXGI_ANISOTROPIC_VOXEL
-  if (any(id >= VXGI_TexelResolution)) return;
+  finalColor /= max(1, count);
+
+  Target[id] = finalColor;
 #endif
-
-  RadianceRG[id] = 0u;
-  RadianceBA[id] = 0u;
-  RadianceCount[id] = 0u;
-}
-
-[numthreads(64,1,1)]
-void CSRender(uint id : SV_DispatchThreadID, uint gtid : SV_GroupThreadId)
-{
-  if (gtid == 0) VXGI_VoxelFragmentsCount = VXGI_VoxelFragmentsCountBuffer.Load(0);
-
-  GroupMemoryBarrierWithGroupSync();
-
-  if (id >= VXGI_VoxelFragmentsCount) return;
-
-  VoxelData data = VoxelBuffer.Consume();
-
-  float3 position = data.GetPosition();
-  float3 normal = data.GetNormal();
-  float4 color = data.GetColor();
-  float3 emission = data.GetEmission();
-
-#ifdef VXGI_CASCADES
-  uint level = data.GetCascadeIndex();
-
-  position = TransformCascadeToVoxelPosition(position, level);
-#else
-  position *= Resolution;
-#endif
-
-  VoxelLightingData lightingData;
-  lightingData.color = color.rgb;
-  lightingData.voxelPosition = position;
-  lightingData.vecN = normal;
-  lightingData.Initialize();
-
-  color.rgb = emission + VoxelRadiance(lightingData);
-  color.a = saturate(color.a);
-
-  uint4 intColor = (uint4)round(color * RADIANCE_PRECISION);
-  uint rg = intColor.r | intColor.g << 16;
-  uint ba = intColor.b | intColor.a << 16;
-
-#ifdef VXGI_CASCADES
-  position = TransformVoxelToTexelPosition(position, level);
-
-#ifdef VXGI_ANISOTROPIC_VOXEL
-  position = min(VXGI_DoubleTexelResolution * position, VXGI_DoubleTexelResolutionMinus);
-#else
-  position = min(VXGI_TexelResolution * position, VXGI_TexelResolutionMinus);
-#endif
-
-  InterlockedAdd(RadianceRG[position], rg);
-  InterlockedAdd(RadianceBA[position], ba);
-  InterlockedAdd(RadianceCount[position], 1);
-#else // VXGI_CASCADES
-  position = min(position, VXGI_TexelResolutionMinus);
-
-  InterlockedAdd(RadianceRG[position], rg);
-  InterlockedAdd(RadianceBA[position], ba);
-  InterlockedAdd(RadianceCount[position], 1);
-#endif // VXGI_CASCADES
 }

@@ -8,6 +8,15 @@
   float3 VXGI_VolumeCenter;
   int VXGI_CascadesCount;
   uint Resolution;
+  uint BinaryResolution;
+  uint StepMapResolution;
+  uint PerPixelGIRayCount;
+  uint PerVoxelGIRayCount;
+  uint PerPixelGIRayCountSqrt;
+  uint PerVoxelGIRayCountSqrt;
+  float NoiseNum;
+  float4 TempSkyColor;
+  float BinaryVoxelSize;
   uint LightCount;
   float4x4 VoxelToWorld;
   float4x4 WorldToVoxel;
