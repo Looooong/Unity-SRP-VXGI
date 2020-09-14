@@ -321,6 +321,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 }
 
+#if UNITY_EDITOR
+
 [CustomEditor(typeof(VXGI))]
 public class VXGIEditor : Editor
 {
@@ -398,4 +400,8 @@ public class VXGIEditor : Editor
     }
     myScript.antiAliasing = (VXGI.AntiAliasing)EditorGUILayout.EnumPopup("Anti Aliasing", myScript.antiAliasing);
   }
-}
+
+} // class VXGIEditor
+
+#endif  // UNITY_EDITOR
+
