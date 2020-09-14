@@ -2,6 +2,7 @@
   #define VXGI_STRUCTS_LIGHTING_DATA
 
   #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Variables.cginc"
+  #include "Packages/com.looooong.srp.vxgi/ShaderLibrary/Radiances/Transformations.cginc"
 
   struct LightingData
   {
@@ -36,11 +37,7 @@
 
     void Initialize()
     {
-#ifdef VXGI_CASCADES
-      voxelPosition = (worldPosition - VXGI_VolumeMin) / VXGI_VolumeSize;
-#else
-      voxelPosition = mul(WorldToVoxel, float4(worldPosition, 1.0)).xyz;
-#endif
+      voxelPosition = WorldSpaceToNormalizedVoxelSpace(worldPosition);
 
       perceptualRoughness = 1.0 - glossiness;
       roughness = 1.0 - glossiness * glossiness;

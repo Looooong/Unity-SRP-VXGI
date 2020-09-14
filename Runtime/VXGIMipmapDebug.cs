@@ -42,7 +42,7 @@ class VXGIMipmapDebug : MonoBehaviour {
   void OnDrawGizmosSelected() {
     if (_vxgi.ColorVoxelizer.AnisotropicColors) {
       Gizmos.color = Color.red;
-      Gizmos.DrawLine(_vxgi.ColorVoxelizer.voxelSpaceCenter, _vxgi.ColorVoxelizer.voxelSpaceCenter + (_camera.transform.position - _vxgi.ColorVoxelizer.voxelSpaceCenter).normalized);
+      Gizmos.DrawLine(_vxgi.ColorVoxelizer.renderedVoxelSpaceCenter, _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter + (_camera.transform.position - _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter).normalized);
     }
   }
 
@@ -82,7 +82,7 @@ class VXGIMipmapDebug : MonoBehaviour {
 
     _command.SetGlobalFloat(ShaderIDs.RayTracingStep, Mathf.Max(rayTracingStep, .001f));
     _command.SetGlobalFloat("VXGI_layer", layer);
-    _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.ColorVoxelizer.voxelSpaceCenter).normalized);
+    _command.SetGlobalVector("VXGI_SampleDirection", (_camera.transform.position - _vxgi.ColorVoxelizer.renderedVoxelSpaceCenter).normalized);
     _command.DrawProcedural(transform, VisualizationShader.material, (int)VisualizationShader.Pass.Mipmap, MeshTopology.Quads, 24, 1);
   }
 }

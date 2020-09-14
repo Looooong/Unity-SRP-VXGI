@@ -11,16 +11,16 @@ using System;
 public class VXGI : MonoBehaviour {
   public enum AntiAliasing { X1 = 1, X2 = 2, X4 = 4, X8 = 8 }
   public enum Resolution {
-    [InspectorName("Low (32^3)")] Low = 32,
-    [InspectorName("Medium (64^3)")] Medium = 64,
-    [InspectorName("High (128^3)")] High = 128,
-    [InspectorName("Very High (256^3)")] VeryHigh = 256,
+    [InspectorName("Low (32^3)        0.25mb")] Low = 32,
+    [InspectorName("Medium (64^3)     2mb")] Medium = 64,
+    [InspectorName("High (128^3)      16mb")] High = 128,
+    [InspectorName("Very High (256^3) 128mb")] VeryHigh = 256,
   }
   public enum BinaryResolution
   {
-    [InspectorName("Low (128^3)")] Low = 128,
-    [InspectorName("Medium (256^3)")] Medium = 256,
-    [InspectorName("Decent (512^3)")] Decent = 512,
+    [InspectorName("Low (128^3)    2mb")] Low = 128,
+    [InspectorName("Medium (256^3) 16mb")] Medium = 256,
+    [InspectorName("Decent (512^3) 128mb")] Decent = 512,
   }
 
   public readonly static ReadOnlyCollection<LightType> SupportedLightTypes = new ReadOnlyCollection<LightType>(new[] {
@@ -64,6 +64,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   int NoiseNum = 0;
   public bool AnimateNoise = false;
+  public bool AllowUnsafeValues = false;
+  public int PerPixelPerLightShadowRays = 5;
   public int PerPixelGIRays = 4;
   public int PerVoxelGIRays = 1;
   public Color AmbientColor;
@@ -155,7 +157,6 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   }
 
   void PrePass(ScriptableRenderContext renderContext, VXGIRenderer renderer) {
-    if (followCamera) center = transform.position;
 
     //var displacement = (voxelSpaceCenter - _lastVoxelSpaceCenter) / voxelSize;
 
@@ -224,8 +225,8 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
     _command.SetGlobalInt(ShaderIDs.StepMapResolution, BinaryVoxelizer.StepMapper.StepMapStorageResolution.x);
     _command.SetGlobalFloat(ShaderIDs.BinaryVoxelSize, bound*2.0f/(float)BinaryVoxelizer.BinaryStorageResolution.x);
     _command.SetGlobalInt(ShaderIDs.VXGI_CascadesCount, cascadesCount);
-    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, ColorVoxelizer.worldToVoxel);
-    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, ColorVoxelizer.voxelSpaceCenter);
+    _command.SetGlobalMatrix(ShaderIDs.WorldToVoxel, BinaryVoxelizer.worldToVoxel);
+    _command.SetGlobalVector(ShaderIDs.VXGI_VolumeCenter, BinaryVoxelizer.renderedVoxelSpaceCenter);
     renderContext.ExecuteCommandBuffer(_command);
     _command.Clear();
   }
@@ -234,10 +235,10 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
   #region Messages
   void OnDrawGizmos() {
     Gizmos.color = Color.green;
-    Gizmos.DrawWireCube(ColorVoxelizer.voxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound);
+    Gizmos.DrawWireCube(ColorVoxelizer.renderedVoxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound);
 
       for (int i = 1; i < cascadesCount; i++) {
-        Gizmos.DrawWireCube(ColorVoxelizer.voxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound / Mathf.Pow(2, i));
+        Gizmos.DrawWireCube(ColorVoxelizer.renderedVoxelSpaceCenter, Vector3.one * ColorVoxelizer.Bound / Mathf.Pow(2, i));
       }
   }
 
@@ -267,6 +268,7 @@ Gaussian 4x4x4: slow, 2^n voxel resolution."
 
   void UpdateStorage(bool existenceIsRequired)
   {
+    if (followCamera) center = transform.position;
     cascadesCount = Mathf.Clamp(cascadesCount, MinCascadesCount, MaxCascadesCount);
 
     if (colorVoxelizer == null)
@@ -330,72 +332,82 @@ public class VXGIEditor : Editor
   {
     return (VXGI.LightingMethod)lightingMethod == VXGI.LightingMethod.Rays;
   }
+  public int SafeIntSlider(string text, int value, int range0, int range1, bool notsafe)
+  {
+    if (!notsafe)
+      return EditorGUILayout.IntSlider(text, value, range0, range1);
+    else
+      return EditorGUILayout.IntField(text, value);
+  }
   public override void OnInspectorGUI()
   {
-    var myScript = target as VXGI;
+    var _vxgi = target as VXGI;
 
 
     EditorGUILayout.LabelField("Lighting", EditorStyles.boldLabel);
-    myScript.lightingMethod = (VXGI.LightingMethod)EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, showEnumValue, true);// EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, ShowEnumValue, false);
-    myScript.diffuseResolutionScale = EditorGUILayout.Slider("Resolution Scale", myScript.diffuseResolutionScale, 0.1f, 1.0f);
-    myScript.throttleTracing = EditorGUILayout.Toggle("Throttle Tracing", myScript.throttleTracing);
-    if (myScript.throttleTracing)
-      myScript.tracingRate = EditorGUILayout.Slider("Tracing Rate", myScript.tracingRate, 1.0f, 100.0f);
-    if (myScript.lightingMethod == VXGI.LightingMethod.Rays)
+    _vxgi.lightingMethod = (VXGI.LightingMethod)EditorGUILayout.EnumPopup(new GUIContent(""), _vxgi.lightingMethod, showEnumValue, true);// EditorGUILayout.EnumPopup(new GUIContent(""), myScript.lightingMethod, ShowEnumValue, false);
+    _vxgi.diffuseResolutionScale = EditorGUILayout.Slider("Resolution Scale", _vxgi.diffuseResolutionScale, 0.1f, 1.0f);
+    _vxgi.throttleTracing = EditorGUILayout.Toggle("Throttle Tracing", _vxgi.throttleTracing);
+    if (_vxgi.throttleTracing)
+      _vxgi.tracingRate = EditorGUILayout.Slider("Tracing Rate", _vxgi.tracingRate, 1.0f, 100.0f);
+    if (_vxgi.lightingMethod == VXGI.LightingMethod.Rays)
     {
-      myScript.PerPixelGIRays = EditorGUILayout.IntSlider("Per-Pixel GI Quality", (int)Math.Sqrt((double)myScript.PerPixelGIRays), 0, 10);
-      myScript.PerPixelGIRays *= myScript.PerPixelGIRays;
-      if (myScript.PerPixelGIRays == 0)
+      _vxgi.AllowUnsafeValues = EditorGUILayout.Toggle("Allow Unsafe Values", _vxgi.AllowUnsafeValues);
+      _vxgi.PerPixelGIRays = SafeIntSlider("Per-Pixel GI Quality", (int)Math.Sqrt((double)_vxgi.PerPixelGIRays), 0, 10, _vxgi.AllowUnsafeValues);
+      _vxgi.PerPixelGIRays *= _vxgi.PerPixelGIRays;
+      if (_vxgi.PerPixelGIRays == 0)
         EditorGUILayout.LabelField("Per Pixel: Disabled");
       else
-        EditorGUILayout.LabelField("Per Pixel: " + myScript.PerPixelGIRays.ToString() + " rays");
+        EditorGUILayout.LabelField("Per Pixel: " + _vxgi.PerPixelGIRays.ToString() + " rays");
 
-      myScript.PerVoxelGIRays = EditorGUILayout.IntSlider("Per-Voxel GI Quality", (int)Math.Sqrt((double)myScript.PerVoxelGIRays), 0, 5);
-      myScript.PerVoxelGIRays *= myScript.PerVoxelGIRays;
-      if (myScript.PerVoxelGIRays == 0)
+      _vxgi.PerPixelPerLightShadowRays = SafeIntSlider("Per-Pixel Shadow Rays for light with radius 1", _vxgi.PerPixelPerLightShadowRays, 0, 20, _vxgi.AllowUnsafeValues);
+
+      _vxgi.PerVoxelGIRays = SafeIntSlider("Per-Voxel GI Quality", (int)Math.Sqrt((double)_vxgi.PerVoxelGIRays), 0, 5, _vxgi.AllowUnsafeValues);
+      _vxgi.PerVoxelGIRays *= _vxgi.PerVoxelGIRays;
+      if (_vxgi.PerVoxelGIRays == 0)
         EditorGUILayout.LabelField("Per Voxel: Disabled");
       else
-        EditorGUILayout.LabelField("Per Voxel: " + myScript.PerVoxelGIRays.ToString() + " rays");
+        EditorGUILayout.LabelField("Per Voxel: " + _vxgi.PerVoxelGIRays.ToString() + " rays");
 
-      myScript.AnimateNoise = EditorGUILayout.Toggle("Animate Per-Pixel Noise", myScript.AnimateNoise);
-      myScript.AmbientColor = EditorGUILayout.ColorField("Sky Color", myScript.AmbientColor);
-      myScript.indirectDiffuseModifier = EditorGUILayout.FloatField("Indirect Diffuse Modifier", myScript.indirectDiffuseModifier);
+      _vxgi.AnimateNoise = EditorGUILayout.Toggle("Animate Per-Pixel Noise", _vxgi.AnimateNoise);
+      _vxgi.AmbientColor = EditorGUILayout.ColorField("Sky Color", _vxgi.AmbientColor);
+      _vxgi.indirectDiffuseModifier = EditorGUILayout.FloatField("Indirect Diffuse Modifier", _vxgi.indirectDiffuseModifier);
       GUI.enabled = false;
-        myScript.indirectSpecularModifier = EditorGUILayout.FloatField("Indirect Specular Modifier", myScript.indirectSpecularModifier);
-      myScript.indirectSpecularModifier = 0.0f;
+        _vxgi.indirectSpecularModifier = EditorGUILayout.FloatField("Indirect Specular Modifier", _vxgi.indirectSpecularModifier);
+      _vxgi.indirectSpecularModifier = 0.0f;
       GUI.enabled = true;
     }
 
 
     EditorGUILayout.LabelField("Voxelization", EditorStyles.boldLabel);
     GUI.enabled = false;
-      myScript.cascadesCount = EditorGUILayout.IntSlider("Cascades", myScript.cascadesCount, VXGI.MinCascadesCount, VXGI.MaxCascadesCount);
-      myScript.cascadesCount = 1;
+      _vxgi.cascadesCount = EditorGUILayout.IntSlider("Cascades", _vxgi.cascadesCount, VXGI.MinCascadesCount, VXGI.MaxCascadesCount);
+      _vxgi.cascadesCount = 1;
     GUI.enabled = true;
-    myScript.bound = EditorGUILayout.Slider("Bounds", myScript.bound, 0f, 256f);
+    _vxgi.bound = EditorGUILayout.Slider("Bounds", _vxgi.bound, 0f, 256f);
 
-    myScript.followCamera = EditorGUILayout.Toggle("Follow Camera", myScript.followCamera);
-    GUI.enabled = !myScript.followCamera;
-      myScript.center = EditorGUILayout.Vector3Field("Center", myScript.center);
+    _vxgi.followCamera = EditorGUILayout.Toggle("Follow Camera", _vxgi.followCamera);
+    GUI.enabled = !_vxgi.followCamera;
+      _vxgi.center = EditorGUILayout.Vector3Field("Center", _vxgi.center);
     GUI.enabled = true;
     GUI.enabled = false;
-      myScript.anisotropicVoxel = EditorGUILayout.Toggle("Anistropic Colors", myScript.anisotropicVoxel);
-      myScript.anisotropicVoxel = false;
+      _vxgi.anisotropicVoxel = EditorGUILayout.Toggle("Anistropic Colors", _vxgi.anisotropicVoxel);
+      _vxgi.anisotropicVoxel = false;
     GUI.enabled = true;
-    myScript.resolution = (VXGI.Resolution)EditorGUILayout.EnumPopup("Color Resolution", myScript.resolution);
-    if (myScript.RequiresBinary)
+    _vxgi.resolution = (VXGI.Resolution)EditorGUILayout.EnumPopup("Color Resolution", _vxgi.resolution);
+    if (_vxgi.RequiresBinary)
     {
-      myScript.binaryResolution = (VXGI.BinaryResolution)EditorGUILayout.EnumPopup("Binary Resolution", myScript.binaryResolution);
+      _vxgi.binaryResolution = (VXGI.BinaryResolution)EditorGUILayout.EnumPopup("Binary Resolution", _vxgi.binaryResolution);
 
-      if ((int)myScript.binaryResolution < (int)myScript.resolution)
+      if ((int)_vxgi.binaryResolution < (int)_vxgi.resolution)
       {
         EditorGUILayout.HelpBox("Color resolution must <= to binary resolution.", MessageType.Error);
       }
-      if ((int)myScript.binaryResolution != (int)myScript.resolution)
+      if ((int)_vxgi.binaryResolution != (int)_vxgi.resolution)
       {
         EditorGUILayout.HelpBox("Currently there's a slow down when the two resolutions don't match, hoping to improve at some point.", MessageType.Warning);
       }
     }
-    myScript.antiAliasing = (VXGI.AntiAliasing)EditorGUILayout.EnumPopup("Anti Aliasing", myScript.antiAliasing);
+    _vxgi.antiAliasing = (VXGI.AntiAliasing)EditorGUILayout.EnumPopup("Anti Aliasing", _vxgi.antiAliasing);
   }
 }
