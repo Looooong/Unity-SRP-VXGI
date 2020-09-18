@@ -119,6 +119,9 @@ public class VXGIRenderPipeline : RenderPipeline {
 
     renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
 
+    drawingSettings = new DrawingSettings(new ShaderTagId("Always"), new SortingSettings(camera));
+    renderContext.DrawRenderers(cullingResults, ref drawingSettings, ref _filteringSettings);
+
     if (camera.clearFlags == CameraClearFlags.Skybox) renderContext.DrawSkybox(camera);
 
     renderContext.InvokeOnRenderObjectCallback();
